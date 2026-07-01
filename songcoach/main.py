@@ -25,11 +25,10 @@ app.include_router(pages.router)
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
-# In local mode, serve stored media straight off disk.
-if settings.storage_backend == "local":
-    media_dir = Path(settings.local_storage_dir)
-    media_dir.mkdir(parents=True, exist_ok=True)
-    app.mount("/media", StaticFiles(directory=str(media_dir)), name="media")
+# Serve stored recordings/stems straight off disk.
+media_dir = Path(settings.local_storage_dir)
+media_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=str(media_dir)), name="media")
 
 
 @app.get("/healthz")

@@ -1,16 +1,17 @@
-"""End-to-end job pipeline, safe to run in a worker or a background thread."""
+"""Separation pipeline for a captured recording, run in a background thread."""
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
-from ..config import settings
-from ..db import SessionLocal, engine
+from ..db import SessionLocal
 from ..models import Job, JobStatus, Track, TrackKind
 from ..storage import get_storage
-from . import downloader, separator
+from . import separator
+from .recorder import capture_dir
 
 log = logging.getLogger("songcoach.pipeline")
 
@@ -36,46 +37,36 @@ def _to_mp3(src: Path, dest: Path) -> None:
     )
 
 
-def run_job(job_id: str) -> None:
-    """Download → separate → upload three stems → mark done."""
-    # RQ forks a child process per job; drop any DB connections inherited from
-    # the parent so this process opens its own (fork-safe for SQLite & Postgres).
-    engine.dispose(close=False)
+def process_capture(job_id: str) -> None:
+    """Separate a captured recording into three stems → publish → mark done.
 
+    The audio was already recorded to ``capture_dir(job_id)/capture.m4a`` by the
+    recording session, so this picks up at separation (no download step).
+    """
     session = SessionLocal()
     storage = get_storage()
+    src_dir = capture_dir(job_id)
+    source = src_dir / "capture.m4a"
     try:
         job = session.get(Job, job_id)
         if job is None:
             log.error("Job %s not found", job_id)
             return
+        if not source.exists():
+            raise RuntimeError(f"captured audio missing at {source}")
 
         with tempfile.TemporaryDirectory(prefix="songcoach-") as tmp:
             work = Path(tmp)
 
-            # 1. Download
-            _set(session, job, status=JobStatus.downloading, progress=10)
-            dl = downloader.download_audio(job.youtube_url, work / "download")
-            _set(
-                session, job,
-                title=dl.title, duration_seconds=dl.duration, thumbnail_url=dl.thumbnail,
-                progress=30,
-            )
+            # 1. Separate (the slow part)
+            _set(session, job, status=JobStatus.separating, progress=40)
+            sep = separator.separate(source, work / "separated")
 
-            if dl.duration and dl.duration > settings.max_duration_seconds:
-                raise ValueError(
-                    f"Track is {dl.duration:.0f}s; limit is {settings.max_duration_seconds}s"
-                )
-
-            # 2. Separate (the slow part)
-            _set(session, job, status=JobStatus.separating, progress=45)
-            sep = separator.separate(dl.audio_path, work / "separated")
-
-            # 3. Prepare the full-song web track
+            # 2. Prepare the full-recording web track
             original_mp3 = work / "original.mp3"
-            _to_mp3(dl.audio_path, original_mp3)
+            _to_mp3(source, original_mp3)
 
-            # 4. Upload the three deliverables
+            # 3. Upload the three deliverables
             _set(session, job, status=JobStatus.uploading, progress=80)
             deliverables = {
                 TrackKind.original: original_mp3,
@@ -87,11 +78,14 @@ def run_job(job_id: str) -> None:
                 key = f"jobs/{job.id}/{kind.value}.mp3"
                 storage.save(path, key)
                 job.tracks.append(
-                    Track(kind=kind, storage_key=key, duration_seconds=dl.duration)
+                    Track(kind=kind, storage_key=key, duration_seconds=job.duration_seconds)
                 )
 
             _set(session, job, status=JobStatus.done, progress=100, error=None)
-            log.info("Job %s complete: %s", job_id, dl.title)
+            log.info("Job %s complete: %s", job_id, job.title)
+
+        # Reclaim the raw capture now that the stems are published.
+        shutil.rmtree(src_dir, ignore_errors=True)
 
     except subprocess.CalledProcessError as exc:
         msg = (exc.stderr or str(exc)).strip()[-500:]

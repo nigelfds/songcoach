@@ -1,28 +1,15 @@
 # --- Web ---
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
-gunicorn==23.0.0
 jinja2==3.1.5
 python-multipart==0.0.20
 pydantic==2.10.4
 pydantic-settings==2.7.1
 
-# --- Database ---
+# --- Database (local SQLite via SQLAlchemy) ---
 sqlalchemy==2.0.36
-psycopg[binary]==3.2.3        # Postgres on Heroku
-
-# --- Background jobs ---
-rq==2.0.0
-redis==5.2.1
-
-# --- Storage ---
-boto3==1.35.90               # S3
 
 # --- Pipeline ---
-# yt-dlp breaks whenever YouTube changes — keep it current, don't hard-pin old.
-yt-dlp>=2026.6.9
 demucs==4.0.1                # pulls in torch, torchaudio
-# torch/torchaudio resolved by demucs; pin CPU wheels on Heroku via requirements note
 
 python-dotenv==1.0.1
-httpx==0.28.1

@@ -37,6 +37,11 @@ class RecordingResult:
     duration: float | None
 
 
+def capture_dir(job_id: str) -> Path:
+    """Where a job's captured audio lives until it's separated and published."""
+    return Path(settings.local_storage_dir) / "recordings" / job_id
+
+
 def _resolve_binary() -> Path:
     binary = Path(settings.syscap_bin)
     if not binary.is_absolute():

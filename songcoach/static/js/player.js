@@ -11,7 +11,7 @@ const KINDS = [
 ];
 
 const STAGE_LABEL = {
-  queued: "QUEUED", downloading: "DOWNLOADING", separating: "SEPARATING",
+  recording: "RECORDING", queued: "QUEUED", separating: "SEPARATING",
   uploading: "UPLOADING", done: "READY", failed: "FAILED",
 };
 
@@ -69,6 +69,7 @@ let syncing = false;
 
 function initPlayer(job) {
   document.getElementById("track-title").textContent = job.title || "Untitled";
+  document.getElementById("track-artist").textContent = job.artist || "";
   const byKind = Object.fromEntries(job.tracks.map((t) => [t.kind, t]));
   const stripsEl = document.getElementById("strips");
 

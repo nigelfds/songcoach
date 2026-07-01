@@ -26,3 +26,7 @@ native/syscap
 .DS_Store
 .idea/
 .vscode/
+
+# Test artifacts
+.playwright-mcp/
+*.png

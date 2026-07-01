@@ -1,4 +1,4 @@
-"""Database models: a Job (one YouTube URL run) owns three Tracks."""
+"""Database models: a Job (one captured recording) owns three Tracks."""
 from __future__ import annotations
 
 import enum
@@ -20,8 +20,8 @@ def _now() -> datetime:
 
 
 class JobStatus(str, enum.Enum):
+    recording = "recording"
     queued = "queued"
-    downloading = "downloading"
     separating = "separating"
     uploading = "uploading"
     done = "done"
@@ -38,13 +38,14 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
-    youtube_url: Mapped[str] = mapped_column(Text, nullable=False)
-    title: Mapped[str | None] = mapped_column(Text)
+    # User-supplied metadata for the recording.
+    title: Mapped[str | None] = mapped_column(Text)          # song name
+    artist: Mapped[str | None] = mapped_column(Text)
+    youtube_url: Mapped[str | None] = mapped_column(Text)    # optional reference link
     duration_seconds: Mapped[float | None] = mapped_column(Float)
-    thumbnail_url: Mapped[str | None] = mapped_column(Text)
 
     status: Mapped[JobStatus] = mapped_column(
-        Enum(JobStatus), default=JobStatus.queued, nullable=False
+        Enum(JobStatus), default=JobStatus.recording, nullable=False
     )
     progress: Mapped[int] = mapped_column(Integer, default=0)  # 0-100
     error: Mapped[str | None] = mapped_column(Text)
@@ -65,7 +66,7 @@ class Track(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_uuid)
     job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"))
     kind: Mapped[TrackKind] = mapped_column(Enum(TrackKind), nullable=False)
-    # Storage key (S3 object key or local relative path).
+    # Storage key (local path relative to LOCAL_STORAGE_DIR).
     storage_key: Mapped[str] = mapped_column(Text, nullable=False)
     duration_seconds: Mapped[float | None] = mapped_column(Float)
 

@@ -1,4 +1,4 @@
-"""HTML pages: landing/submit form and the player."""
+"""HTML pages: landing (capture + recordings list) and the player."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_session
@@ -16,8 +17,9 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent
 
 
 @router.get("/", response_class=HTMLResponse)
-def index(request: Request):
-    return templates.TemplateResponse(request, "index.html", {})
+def index(request: Request, session: Session = Depends(get_session)):
+    jobs = session.scalars(select(Job).order_by(Job.created_at.desc())).all()
+    return templates.TemplateResponse(request, "index.html", {"jobs": jobs})
 
 
 @router.get("/jobs/{job_id}", response_class=HTMLResponse)

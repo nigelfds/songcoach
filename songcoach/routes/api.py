@@ -1,27 +1,24 @@
-"""JSON API: create jobs, poll status, fetch track URLs."""
+"""JSON API: drive recordings, poll status, fetch track URLs."""
 from __future__ import annotations
-
-import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .. import recording
 from ..db import get_session
-from ..jobs import enqueue
 from ..models import Job, JobStatus
+from ..pipeline.recorder import RecorderError
 from ..storage import get_storage
 
 router = APIRouter(prefix="/api", tags=["api"])
 
-_YOUTUBE_RE = re.compile(
-    r"^(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/|youtube\.com/shorts/|music\.youtube\.com/watch\?v=)[\w\-]+",
-    re.IGNORECASE,
-)
 
-
-class CreateJobIn(BaseModel):
-    url: str
+class StartRecordingIn(BaseModel):
+    title: str
+    artist: str | None = None
+    youtube_url: str | None = None
 
 
 class TrackOut(BaseModel):
@@ -35,8 +32,9 @@ class JobOut(BaseModel):
     status: str
     progress: int
     title: str | None
+    artist: str | None
+    youtube_url: str | None
     duration_seconds: float | None
-    thumbnail_url: str | None
     error: str | None
     tracks: list[TrackOut]
 
@@ -52,21 +50,45 @@ def _serialize(job: Job) -> JobOut:
             )
     return JobOut(
         id=job.id, status=job.status.value, progress=job.progress,
-        title=job.title, duration_seconds=job.duration_seconds,
-        thumbnail_url=job.thumbnail_url, error=job.error, tracks=tracks,
+        title=job.title, artist=job.artist, youtube_url=job.youtube_url,
+        duration_seconds=job.duration_seconds, error=job.error, tracks=tracks,
     )
 
 
-@router.post("/jobs", response_model=JobOut, status_code=201)
-def create_job(payload: CreateJobIn, session: Session = Depends(get_session)):
-    url = payload.url.strip()
-    if not _YOUTUBE_RE.match(url):
-        raise HTTPException(status_code=422, detail="Please provide a valid YouTube URL.")
-    job = Job(youtube_url=url, status=JobStatus.queued)
-    session.add(job)
-    session.commit()
-    enqueue(job.id)
-    return _serialize(job)
+@router.post("/recordings/start", response_model=JobOut, status_code=201)
+def start_recording(payload: StartRecordingIn, session: Session = Depends(get_session)):
+    title = payload.title.strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="A song name is required.")
+    try:
+        job_id = recording.start(
+            title=title,
+            artist=(payload.artist or "").strip() or None,
+            youtube_url=(payload.youtube_url or "").strip() or None,
+        )
+    except RecorderError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return _serialize(session.get(Job, job_id))
+
+
+@router.post("/recordings/stop", response_model=JobOut)
+def stop_recording(session: Session = Depends(get_session)):
+    try:
+        job_id = recording.stop()
+    except RecorderError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    return _serialize(session.get(Job, job_id))
+
+
+@router.get("/recordings/status")
+def recording_status():
+    return {"recording": recording.is_recording()}
+
+
+@router.get("/jobs", response_model=list[JobOut])
+def list_jobs(session: Session = Depends(get_session)):
+    jobs = session.scalars(select(Job).order_by(Job.created_at.desc())).all()
+    return [_serialize(j) for j in jobs]
 
 
 @router.get("/jobs/{job_id}", response_model=JobOut)

@@ -7,29 +7,64 @@
     <div class="rack-screws"><i></i><i></i><i></i><i></i></div>
 
     <header class="brand">
-      <span class="brand__meta">CH-01 · SOURCE SEPARATOR</span>
+      <span class="brand__meta">CH-01 · SYSTEM AUDIO TAP</span>
       <h1 class="brand__mark">SONG<span>COACH</span></h1>
       <p class="brand__tag">Isolate the kit. Loop the fill. Lock in the groove.</p>
     </header>
 
-    <form id="load-form" class="jack" autocomplete="off">
-      <label for="url" class="jack__label">YouTube input</label>
-      <div class="jack__row">
-        <input id="url" name="url" type="url" inputmode="url" spellcheck="false"
-               placeholder="https://youtube.com/watch?v=…" required />
-        <button type="submit" class="btn-load">
-          <span class="btn-load__led"></span>LOAD
-        </button>
+    <div class="tape">
+      <span class="tape__label">New recording</span>
+      <div class="meta">
+        <input id="song" class="meta__in" type="text" maxlength="120" autocomplete="off"
+               spellcheck="false" placeholder="Song name" required />
+        <div class="meta__row">
+          <input id="artist" class="meta__in" type="text" maxlength="120" autocomplete="off"
+                 spellcheck="false" placeholder="Artist (optional)" />
+          <input id="yturl" class="meta__in" type="url" inputmode="url" autocomplete="off"
+                 spellcheck="false" placeholder="YouTube URL (optional)" />
+        </div>
       </div>
-      <p class="jack__error" id="form-error" role="alert"></p>
-    </form>
 
-    <ol class="chain">
-      <li><b>01</b> Pull the audio (yt-dlp · Premium-aware)</li>
-      <li><b>02</b> Split with Demucs → drums / no-drums</li>
-      <li><b>03</b> Loop any section, any track</li>
-    </ol>
+      <div class="tape__status">
+        <span id="rec-led" class="rec-led" data-on="false"></span>
+        <span id="tape-state" class="tape__state">Ready to capture</span>
+        <span id="tape-timer" class="tape__timer" hidden>0:00</span>
+      </div>
+      <button id="capture-btn" type="button" class="btn-rec" data-recording="false">
+        <span class="btn-rec__icon"></span>
+        <span class="btn-rec__label">START CAPTURE</span>
+      </button>
+      <p class="jack__error" id="form-error" role="alert"></p>
+      <p class="tape__hint">Play the song through your Mac — a YouTube tab, Spotify, a file — then stop to separate it.</p>
+    </div>
   </div>
+
+  <section class="library hero__panel" aria-label="Recordings">
+    <span class="tape__label">Library · {{ jobs|length }} recording{{ '' if jobs|length == 1 else 's' }}</span>
+    {% if jobs %}
+    <ul class="rec-list">
+      {% for job in jobs %}
+      <li>
+        <a class="rec" href="/jobs/{{ job.id }}">
+          <div class="rec__main">
+            <span class="rec__name">{{ job.title or "Untitled" }}</span>
+            {% if job.artist %}<span class="rec__artist">{{ job.artist }}</span>{% endif %}
+          </div>
+          <div class="rec__files">
+            {% if job.status.value == 'done' %}
+              {% for t in job.tracks %}<span class="chip chip--file">{{ t.kind.value.replace('_', ' ') }}</span>{% endfor %}
+            {% else %}
+              <span class="rec__badge" data-status="{{ job.status.value }}">{{ job.status.value }}</span>
+            {% endif %}
+          </div>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="library__empty">No recordings yet. Capture your first one above.</p>
+    {% endif %}
+  </section>
 
   <p class="footnote">Built for drummers. Separation runs on an AI model and can take a couple of minutes.</p>
 </main>
