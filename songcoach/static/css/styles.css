@@ -228,16 +228,25 @@ a { color: inherit; }
 /* ============================================================
    PLAYER CONSOLE
    ============================================================ */
-.console { min-height: 100dvh; padding: 1rem clamp(.8rem,4vw,2rem) 7.5rem; max-width: 1080px; margin: 0 auto; }
-.console__head { display: flex; align-items: center; gap: 1rem; padding: .5rem 0 1.4rem; }
+.console { min-height: 100dvh; padding: 1rem clamp(.8rem,4vw,2rem) 2.5rem; max-width: 1080px; margin: 0 auto; }
+.console__head { display: flex; align-items: center; flex-wrap: wrap; gap: .7rem 1rem; padding: .5rem 0 .9rem; }
 .console__head .link-back { font-size: 1.4rem; margin: 0; padding: .2rem .6rem; border: 1px solid var(--line); border-radius: 10px; }
+.console__title { flex: 1 1 42%; min-width: 0; }
+.console__controls { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin-left: auto; }
+.speed { display: flex; align-items: center; gap: .4rem; }
+.speed > span { font-family: var(--font-mono); font-size: .58rem; letter-spacing: .2em; color: var(--ink-faint); }
+.speed select {
+  background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 8px; padding: .4rem .5rem; font-family: var(--font-mono); font-size: .8rem; cursor: pointer;
+}
+.console__hint { color: var(--ink-dim); font-size: .8rem; margin: 0 0 1rem; }
 .console__thumb {
   flex: none; width: 72px; height: 48px; border-radius: 10px;
   object-fit: cover; border: 1px solid var(--line);
   box-shadow: 0 4px 12px -6px rgba(40,34,24,.4);
 }
 .icon-btn {
-  margin-left: auto; flex: none; width: 40px; height: 40px;
+  flex: none; width: 40px; height: 40px;
   display: grid; place-items: center; cursor: pointer; font-size: 1.05rem;
   background: var(--panel-2); color: var(--ink-dim);
   border: 1px solid var(--line); border-radius: 10px;
@@ -270,66 +279,48 @@ a { color: inherit; }
 .strip__name { font-family: var(--font-display); font-weight: 700; letter-spacing: .04em; font-size: .95rem; }
 .strip__sub { font-family: var(--font-mono); font-size: .62rem; letter-spacing: .2em; color: var(--ink-faint); text-transform: uppercase; }
 
-.strip__solo {
-  font-family: var(--font-mono); font-size: .68rem; letter-spacing: .12em;
+.strip__ctrls { display: flex; align-items: center; gap: .5rem; }
+.strip__btn {
+  width: 40px; height: 40px; border-radius: 10px; cursor: pointer;
+  display: grid; place-items: center; font-size: .95rem;
   background: var(--bg); color: var(--ink-dim); border: 1px solid var(--line);
-  border-radius: 8px; padding: .4rem .7rem; cursor: pointer; transition: all .18s;
+  transition: transform .1s, border-color .2s, color .2s, background .2s, box-shadow .2s;
 }
-.strip[data-active="true"] .strip__solo { background: var(--chan); color: #0a0c0d; border-color: var(--chan); font-weight: 600; }
+.strip__btn:hover { border-color: var(--ink-dim); color: var(--ink); }
+.strip__btn:active { transform: scale(.94); }
+/* the play button on the audible track is filled with the channel color */
+.strip[data-active="true"] .strip__play {
+  background: var(--chan); color: #fff; border-color: var(--chan);
+  box-shadow: 0 0 16px -5px var(--chan);
+}
 
 .wave { width: 100%; cursor: text; }
 .wave__loading { height: 72px; display: grid; place-items: center; color: var(--ink-faint); font-family: var(--font-mono); font-size: .75rem; letter-spacing: .2em; }
+.wave-tl { width: 100%; margin-top: .2rem; font-family: var(--font-mono); }
 
 /* channel colors */
 .strip[data-kind="original"] { --chan: var(--violet); }
 .strip[data-kind="drums"]    { --chan: var(--amber); }
 .strip[data-kind="no_drums"] { --chan: var(--teal); }
 
-/* ---- transport ---- */
-.transport {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
-  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .5rem;
-  padding: .7rem clamp(.8rem,4vw,2rem) calc(.7rem + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgba(255,255,255,.72), var(--bg-2));
-  backdrop-filter: blur(14px); border-top: 1px solid var(--line);
-  box-shadow: 0 -12px 30px -22px rgba(40,34,24,.4);
-}
-.transport__center { display: flex; align-items: center; justify-content: center; gap: .7rem; }
-.tbtn {
-  background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
-  width: 44px; height: 44px; border-radius: 12px; font-size: 1rem; cursor: pointer;
-  display: grid; place-items: center; transition: transform .1s, border-color .2s;
-}
-.tbtn:hover { border-color: var(--ink-dim); }
-.tbtn:active { transform: scale(.94); }
-.tbtn--play {
-  width: 56px; height: 56px; font-size: 1.3rem;
-  background: linear-gradient(180deg, #3fbf6a, var(--green)); border-color: var(--green); color: #fff;
-  box-shadow: 0 8px 18px -6px rgba(31,158,75,.55), 0 1px 0 rgba(255,255,255,.35) inset;
-}
+/* ---- header controls (readout / loop / speed) ---- */
 .readout { font-family: var(--font-mono); font-size: .82rem; color: var(--ink-dim); white-space: nowrap; }
 .readout i { color: var(--ink-faint); margin: 0 .25rem; font-style: normal; }
 .readout #cur { color: var(--amber); }
 
-.transport__loop { display: flex; gap: .4rem; }
 .chip {
   font-family: var(--font-mono); font-size: .68rem; letter-spacing: .1em;
   background: var(--panel-2); color: var(--ink-dim); border: 1px solid var(--line);
   border-radius: 999px; padding: .5rem .8rem; cursor: pointer; transition: all .18s;
 }
 .chip[aria-pressed="true"] { background: var(--amber); color: #241300; border-color: var(--amber); font-weight: 600; box-shadow: 0 0 14px -2px rgba(255,158,64,.5); }
+.chip:disabled { opacity: .4; cursor: default; }
 .chip--ghost { opacity: .6; }
 .chip--ghost:hover { opacity: 1; }
-.transport__speed { display: flex; flex-direction: column; align-items: flex-end; gap: .1rem; }
-.transport__speed label { font-family: var(--font-mono); font-size: .58rem; letter-spacing: .2em; color: var(--ink-faint); }
-.transport__speed select {
-  background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
-  border-radius: 8px; padding: .35rem .5rem; font-family: var(--font-mono); font-size: .8rem;
-}
 
-/* hide loop/speed labels on very small screens, keep controls usable */
-@media (max-width: 420px) {
-  .transport__loop .chip--ghost { display: none; }
+/* keep the header controls usable on very small screens */
+@media (max-width: 460px) {
+  .readout { display: none; }
   .strip__sub { display: none; }
 }
 

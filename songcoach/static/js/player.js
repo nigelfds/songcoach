@@ -1,5 +1,6 @@
 import WaveSurfer from "https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.esm.js";
 import RegionsPlugin from "https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.esm.js";
+import TimelinePlugin from "https://unpkg.com/wavesurfer.js@7/dist/plugins/timeline.esm.js";
 
 const app = document.getElementById("app");
 const jobId = app.dataset.jobId;
@@ -10,6 +11,9 @@ const KINDS = [
   { kind: "drums",    name: "DRUMS",     sub: "the kit, solo", color: "#e8760a", dim: "#f6cf9f" },
   { kind: "no_drums", name: "NO DRUMS",  sub: "play along",    color: "#0e9e90", dim: "#a6ded7" },
 ];
+
+const REGION_COLOR = "rgba(232,118,10,.16)";
+const EPS = 0.03;
 
 const STAGE_LABEL = {
   recording: "RECORDING", queued: "QUEUED", separating: "SEPARATING",
@@ -62,12 +66,13 @@ function showError(msg) {
 // ---------------------------------------------------------------------------
 // 2. Build the player
 // ---------------------------------------------------------------------------
-const channels = [];      // { kind, ws, regions, el }
+const channels = [];      // { kind, ws, regions, el, playBtn }
 let currentJob = null;    // latest job metadata (for the editor)
-let activeIndex = 1;      // default to DRUMS
+let activeIndex = 1;      // the audible track — default to DRUMS
 let ready = 0;
+// A–B section selected on the waveforms: null bounds = whole track.
 let loop = { enabled: false, start: null, end: null };
-let syncing = false;
+let syncing = false;      // guard while we programmatically move the playheads
 
 function setThumb(url) {
   const thumb = document.getElementById("console-thumb");
@@ -105,13 +110,22 @@ function initPlayer(job) {
             <div class="strip__sub">${meta.sub}</div>
           </div>
         </div>
-        <button class="strip__solo" type="button">${i === activeIndex ? "● LISTENING" : "SOLO"}</button>
+        <div class="strip__ctrls">
+          <button class="strip__btn strip__restart" type="button" title="Back to start" aria-label="Restart">⏮</button>
+          <button class="strip__btn strip__play" type="button" title="Play / pause" aria-label="Play">▶</button>
+        </div>
       </div>
-      <div class="wave"><div class="wave__loading">DECODING…</div></div>`;
+      <div class="wave"><div class="wave__loading">DECODING…</div></div>
+      <div class="wave-tl"></div>`;
     stripsEl.appendChild(strip);
 
     const waveEl = strip.querySelector(".wave");
     const regions = RegionsPlugin.create();
+    const timeline = TimelinePlugin.create({
+      container: strip.querySelector(".wave-tl"),
+      height: 14,
+      style: { fontSize: "9px", color: "#8a857a" },
+    });
     const ws = WaveSurfer.create({
       container: waveEl,
       height: 72,
@@ -123,37 +137,39 @@ function initPlayer(job) {
       barGap: 1,
       barRadius: 2,
       normalize: true,
-      dragToSeek: true,
+      dragToSeek: false,   // dragging selects a section; click seeks
       url: track.url,
-      plugins: [regions],
+      plugins: [regions, timeline],
     });
 
     ws.on("decode", () => {
       const loading = waveEl.querySelector(".wave__loading");
       if (loading) loading.remove();
-      regions.enableDragSelection({ color: "rgba(255,158,64,.18)" });
+      regions.enableDragSelection({ color: REGION_COLOR });
       if (++ready === channels.length) onAllReady();
     });
 
-    // region drag-select on ANY strip drives a single shared A–B loop
-    regions.on("region-created", (r) => applyLoopFromRegion(r));
-    regions.on("region-updated", (r) => applyLoopFromRegion(r));
+    // drag-select on ANY strip drives one shared A–B section
+    regions.on("region-created", (r) => applySectionFromRegion(r));
+    regions.on("region-updated", (r) => applySectionFromRegion(r));
 
-    // interacting with a non-active waveform makes it the listening track
-    ws.on("interaction", () => {
-      if (i !== activeIndex) setActive(i);
+    // click to seek; clicking a quiet track makes it the audible one
+    ws.on("interaction", (newTime) => {
+      if (i !== activeIndex) setActive(i, { keepPlaying: true });
+      seekAll(newTime);
     });
 
     ws.on("timeupdate", (t) => {
-      if (i !== activeIndex) return;
+      if (i !== activeIndex || syncing) return;
       syncOthers(t);
-      handleLoop(t);
+      handleBoundary(t);
       document.getElementById("cur").textContent = fmt(t);
     });
 
-    ws.on("finish", () => setPlayIcon(false));
+    ws.on("finish", () => updateStrips());
 
-    strip.querySelector(".strip__solo").addEventListener("click", () => setActive(i));
+    strip.querySelector(".strip__play").addEventListener("click", () => playStrip(i));
+    strip.querySelector(".strip__restart").addEventListener("click", () => restartStrip(i));
 
     channels.push({ kind: meta.kind, ws, regions, el: strip });
   });
@@ -165,28 +181,26 @@ function onAllReady() {
   const dur = channels[activeIndex].ws.getDuration();
   document.getElementById("dur").textContent = fmt(dur);
   channels.forEach((c) => c.ws.setPlaybackRate(currentRate(), true));
+  updateStrips();
 }
 
 // ---------------------------------------------------------------------------
-// 3. Active-track (solo) switching — only one instance is audible
+// 3. Transport — one track audible, all kept time-aligned
 // ---------------------------------------------------------------------------
-function setActive(i) {
-  if (i === activeIndex) return;
-  const from = channels[activeIndex];
-  const to = channels[i];
-  const wasPlaying = from.ws.isPlaying();
-  const time = from.ws.getCurrentTime();
-
-  from.ws.pause();
-  activeIndex = i;
-  to.ws.setTime(time);
-  to.ws.setPlaybackRate(currentRate(), true);
-  if (wasPlaying) to.ws.play();
-
+function updateStrips() {
   channels.forEach((c, idx) => {
-    c.el.dataset.active = String(idx === i);
-    c.el.querySelector(".strip__solo").textContent = idx === i ? "● LISTENING" : "SOLO";
+    const active = idx === activeIndex;
+    c.el.dataset.active = String(active);
+    c.el.querySelector(".strip__play").textContent =
+      active && c.ws.isPlaying() ? "❚❚" : "▶";
   });
+}
+
+function seekAll(t) {
+  syncing = true;
+  channels.forEach((c) => c.ws.setTime(t));
+  syncing = false;
+  document.getElementById("cur").textContent = fmt(t);
 }
 
 function syncOthers(t) {
@@ -195,44 +209,96 @@ function syncOthers(t) {
   syncing = false;
 }
 
+function setActive(i, { keepPlaying = false } = {}) {
+  if (i === activeIndex) return;
+  const from = channels[activeIndex].ws;
+  const wasPlaying = from.isPlaying();
+  const t = from.getCurrentTime();
+  from.pause();
+  activeIndex = i;
+  const to = channels[i].ws;
+  to.setPlaybackRate(currentRate(), true);
+  to.setTime(t);
+  if (keepPlaying && wasPlaying) to.play();
+  updateStrips();
+}
+
+// Play from the section start when we're outside (or at the end of) the section.
+function startActive() {
+  const ws = channels[activeIndex].ws;
+  if (loop.start != null) {
+    const t = ws.getCurrentTime();
+    if (t < loop.start - 0.01 || t >= loop.end - EPS) seekAll(loop.start);
+  }
+  ws.play();
+  updateStrips();
+}
+
+function toggleActive() {
+  const ws = channels[activeIndex].ws;
+  if (ws.isPlaying()) { ws.pause(); updateStrips(); }
+  else startActive();
+}
+
+function playStrip(i) {
+  if (i === activeIndex) { toggleActive(); return; }
+  setActive(i, { keepPlaying: false });
+  startActive();
+}
+
+function restartStrip(i) {
+  if (i !== activeIndex) setActive(i, { keepPlaying: true });
+  seekAll(loop.start != null ? loop.start : 0);
+}
+
+// At the section end: loop back if looping, otherwise stop and park at the start.
+function handleBoundary(t) {
+  if (loop.start == null || t < loop.end - EPS) return;
+  if (loop.enabled) {
+    seekAll(loop.start);
+  } else {
+    channels[activeIndex].ws.pause();
+    seekAll(loop.start);
+    updateStrips();
+  }
+}
+
 // ---------------------------------------------------------------------------
-// 4. A–B loop
+// 4. A–B section + loop
 // ---------------------------------------------------------------------------
-function applyLoopFromRegion(region) {
+function applySectionFromRegion(region) {
   if (syncing) return;
   loop.start = region.start;
   loop.end = region.end;
-  loop.enabled = true;
-  reflectLoopRegions(region);
-  setLoopToggle(true);
+  reflectRegions(region);
+  document.getElementById("loop-toggle").disabled = false;
 }
 
-// mirror the single active region across all three waveforms
-function reflectLoopRegions(source) {
-  channels.forEach((c) => {
-    c.regions.getRegions().forEach((r) => { if (r !== source) r.remove(); });
-    if (!c.regions.getRegions().includes(source)) {
-      c.regions.addRegion({
-        start: loop.start, end: loop.end,
-        color: "rgba(255,158,64,.14)", drag: true, resize: true,
-      });
-    }
-  });
-}
-
-function handleLoop(t) {
-  if (!loop.enabled || loop.start == null) return;
-  if (t >= loop.end - 0.02) {
-    channels[activeIndex].ws.setTime(loop.start);
+// mirror the single selection across all three waveforms. Guarded by `syncing`
+// so the region-created/updated events this fires don't recurse back in.
+function reflectRegions(source) {
+  syncing = true;
+  try {
+    channels.forEach((c) => {
+      c.regions.getRegions().forEach((r) => { if (r !== source) r.remove(); });
+      if (!c.regions.getRegions().includes(source)) {
+        c.regions.addRegion({
+          start: loop.start, end: loop.end,
+          color: REGION_COLOR, drag: true, resize: true,
+        });
+      }
+    });
+  } finally {
+    syncing = false;
   }
 }
 
 const loopToggle = document.getElementById("loop-toggle");
 loopToggle.addEventListener("click", () => {
-  if (loop.start == null) return;           // nothing selected yet
-  setLoopToggle(!loop.enabled);
+  if (loop.start == null) return;   // nothing selected yet
+  setLoopEnabled(!loop.enabled);
 });
-function setLoopToggle(on) {
+function setLoopEnabled(on) {
   loop.enabled = on;
   loopToggle.setAttribute("aria-pressed", String(on));
 }
@@ -240,36 +306,24 @@ function setLoopToggle(on) {
 document.getElementById("loop-clear").addEventListener("click", () => {
   loop = { enabled: false, start: null, end: null };
   channels.forEach((c) => c.regions.clearRegions());
-  setLoopToggle(false);
+  setLoopEnabled(false);
+  loopToggle.disabled = true;
 });
 
 // ---------------------------------------------------------------------------
-// 5. Transport
+// 5. Speed + keyboard
 // ---------------------------------------------------------------------------
-const playBtn = document.getElementById("playpause");
-playBtn.addEventListener("click", () => {
-  const ws = channels[activeIndex].ws;
-  if (ws.isPlaying()) { ws.pause(); setPlayIcon(false); }
-  else { ws.play(); setPlayIcon(true); }
-});
-function setPlayIcon(playing) { playBtn.textContent = playing ? "❚❚" : "▶"; }
-
-document.getElementById("rewind").addEventListener("click", () => {
-  const ws = channels[activeIndex].ws;
-  ws.setTime(loop.enabled && loop.start != null ? loop.start : 0);
-});
-
 const speedSel = document.getElementById("speed");
 speedSel.addEventListener("change", () => {
   channels.forEach((c) => c.ws.setPlaybackRate(currentRate(), true));
 });
 function currentRate() { return parseFloat(speedSel.value); }
 
-// keyboard: space = play/pause (but not while the edit dialog is open)
+// space = play/pause the audible track (but not while the edit dialog is open)
 document.addEventListener("keydown", (e) => {
   if (e.code === "Space" && playerEl && !playerEl.hidden && overlay.hidden) {
     e.preventDefault();
-    playBtn.click();
+    toggleActive();
   }
 });
 

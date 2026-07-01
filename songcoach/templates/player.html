@@ -23,35 +23,30 @@
       <a class="link-back" href="/">‹</a>
       <img id="console-thumb" class="console__thumb" alt="" hidden />
       <div class="console__title">
-        <span class="console__meta">NOW LOOPING</span>
+        <span class="console__meta">NOW PLAYING</span>
         <h1 id="track-title">—</h1>
         <span class="console__artist" id="track-artist"></span>
       </div>
-      <button id="edit-open" class="icon-btn" type="button" title="Edit details" aria-label="Edit details">✎</button>
+      <div class="console__controls">
+        <span class="readout"><span id="cur">0:00</span><i>/</i><span id="dur">0:00</span></span>
+        <button id="loop-toggle" class="chip" type="button" aria-pressed="false" disabled>A–B LOOP</button>
+        <button id="loop-clear" class="chip chip--ghost" type="button">CLEAR</button>
+        <label class="speed">
+          <span>SPEED</span>
+          <select id="speed">
+            <option value="0.5">0.50×</option>
+            <option value="0.65">0.65×</option>
+            <option value="0.8">0.80×</option>
+            <option value="1" selected>1.00×</option>
+          </select>
+        </label>
+        <button id="edit-open" class="icon-btn" type="button" title="Edit details" aria-label="Edit details">✎</button>
+      </div>
     </header>
 
-    <div class="strips" id="strips"><!-- channel strips injected here --></div>
+    <p class="console__hint">Drag across any waveform to pick a section — play it, or turn on A–B&nbsp;LOOP to repeat it.</p>
 
-    <footer class="transport">
-      <div class="transport__loop">
-        <button id="loop-toggle" class="chip" aria-pressed="false">A–B LOOP</button>
-        <button id="loop-clear" class="chip chip--ghost">CLEAR</button>
-      </div>
-      <div class="transport__center">
-        <button id="rewind" class="tbtn" title="Back to start">⏮</button>
-        <button id="playpause" class="tbtn tbtn--play" title="Play/Pause">▶</button>
-        <span class="readout"><span id="cur">0:00</span><i>/</i><span id="dur">0:00</span></span>
-      </div>
-      <div class="transport__speed">
-        <label>SPEED</label>
-        <select id="speed">
-          <option value="0.5">0.50×</option>
-          <option value="0.65">0.65×</option>
-          <option value="0.8">0.80×</option>
-          <option value="1" selected>1.00×</option>
-        </select>
-      </div>
-    </footer>
+    <div class="strips" id="strips"><!-- channel strips injected here --></div>
   </main>
 
   <!-- EDIT METADATA -->
