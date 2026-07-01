@@ -265,9 +265,9 @@ speedSel.addEventListener("change", () => {
 });
 function currentRate() { return parseFloat(speedSel.value); }
 
-// keyboard: space = play/pause
+// keyboard: space = play/pause (but not while the edit dialog is open)
 document.addEventListener("keydown", (e) => {
-  if (e.code === "Space" && playerEl && !playerEl.hidden) {
+  if (e.code === "Space" && playerEl && !playerEl.hidden && overlay.hidden) {
     e.preventDefault();
     playBtn.click();
   }
