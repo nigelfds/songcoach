@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}SongCoach — player{% endblock %}
+{% block body_class %}player-page{% endblock %}
+{% block content %}
+<div id="app" data-job-id="{{ job_id }}">
+
+  <!-- PROCESSING STATE -->
+  <section id="processing" class="processing">
+    <div class="processing__panel">
+      <div class="rack-screws"><i></i><i></i><i></i><i></i></div>
+      <span class="stage-tag" id="stage-tag">QUEUED</span>
+      <h2 class="processing__title" id="processing-title">Working the signal chain…</h2>
+      <div class="meter"><div class="meter__fill" id="meter-fill"></div></div>
+      <p class="processing__hint" id="processing-hint">Downloading audio and separating stems. This can take a couple of minutes.</p>
+      <p class="processing__error" id="processing-error" hidden></p>
+      <a class="link-back" href="/">‹ start over</a>
+    </div>
+  </section>
+
+  <!-- PLAYER STATE -->
+  <main id="player" class="console" hidden>
+    <header class="console__head">
+      <a class="link-back" href="/">‹</a>
+      <div class="console__title">
+        <span class="console__meta">NOW LOOPING</span>
+        <h1 id="track-title">—</h1>
+      </div>
+    </header>
+
+    <div class="strips" id="strips"><!-- channel strips injected here --></div>
+
+    <footer class="transport">
+      <div class="transport__loop">
+        <button id="loop-toggle" class="chip" aria-pressed="false">A–B LOOP</button>
+        <button id="loop-clear" class="chip chip--ghost">CLEAR</button>
+      </div>
+      <div class="transport__center">
+        <button id="rewind" class="tbtn" title="Back to start">⏮</button>
+        <button id="playpause" class="tbtn tbtn--play" title="Play/Pause">▶</button>
+        <span class="readout"><span id="cur">0:00</span><i>/</i><span id="dur">0:00</span></span>
+      </div>
+      <div class="transport__speed">
+        <label>SPEED</label>
+        <select id="speed">
+          <option value="0.5">0.50×</option>
+          <option value="0.65">0.65×</option>
+          <option value="0.8">0.80×</option>
+          <option value="1" selected>1.00×</option>
+        </select>
+      </div>
+    </footer>
+  </main>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/player.js"></script>{% endblock %}

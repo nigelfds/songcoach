@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}SongCoach — drum practice, isolated{% endblock %}
+{% block body_class %}landing{% endblock %}
+{% block content %}
+<main class="hero">
+  <div class="hero__panel">
+    <div class="rack-screws"><i></i><i></i><i></i><i></i></div>
+
+    <header class="brand">
+      <span class="brand__meta">CH-01 · SOURCE SEPARATOR</span>
+      <h1 class="brand__mark">SONG<span>COACH</span></h1>
+      <p class="brand__tag">Isolate the kit. Loop the fill. Lock in the groove.</p>
+    </header>
+
+    <form id="load-form" class="jack" autocomplete="off">
+      <label for="url" class="jack__label">YouTube input</label>
+      <div class="jack__row">
+        <input id="url" name="url" type="url" inputmode="url" spellcheck="false"
+               placeholder="https://youtube.com/watch?v=…" required />
+        <button type="submit" class="btn-load">
+          <span class="btn-load__led"></span>LOAD
+        </button>
+      </div>
+      <p class="jack__error" id="form-error" role="alert"></p>
+    </form>
+
+    <ol class="chain">
+      <li><b>01</b> Pull the audio (yt-dlp · Premium-aware)</li>
+      <li><b>02</b> Split with Demucs → drums / no-drums</li>
+      <li><b>03</b> Loop any section, any track</li>
+    </ol>
+  </div>
+
+  <p class="footnote">Built for drummers. Separation runs on an AI model and can take a couple of minutes.</p>
+</main>
+{% endblock %}
+{% block scripts %}<script src="/static/js/app.js"></script>{% endblock %}
