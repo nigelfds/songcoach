@@ -156,6 +156,20 @@ The rebuild scans `data/jobs/*/meta.json` and derives each recording's tracks
 from the mp3 files actually present (the files win over the sidecar). Folders
 without a `meta.json` are ignored.
 
+### Thumbnails
+
+For recordings that have a `youtube_url`, you can pull the video's thumbnail into
+its folder (`data/jobs/<id>/thumbnail.jpg`, also noted in `meta.json`):
+
+```bash
+python -m songcoach.fetch_thumbnails            # skips folders that already have one
+python -m songcoach.fetch_thumbnails --force    # re-download all
+```
+
+It uses YouTube's public image CDN (`img.youtube.com`) — no yt-dlp or API key —
+and needs internet access. Since a `youtube_url` can be added by hand-editing a
+`meta.json`, this pairs naturally with the rebuild workflow above.
+
 ---
 
 ## Roadmap / progress tracker
@@ -202,6 +216,7 @@ songcoach/
 │   ├── storage.py          # local-filesystem storage
 │   ├── metadata.py         # meta.json sidecar (source of truth)
 │   ├── rebuild.py          # rebuild the SQLite cache from disk
+│   ├── fetch_thumbnails.py # pull YouTube thumbnails into job folders
 │   ├── jobs.py             # background-thread dispatch
 │   ├── recording.py        # active-capture session manager
 │   ├── pipeline/
