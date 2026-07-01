@@ -46,6 +46,13 @@
       {% for job in jobs %}
       <li>
         <a class="rec" href="/jobs/{{ job.id }}">
+          <div class="rec__thumb">
+            {% if thumbs.get(job.id) %}
+              <img src="{{ thumbs[job.id] }}" alt="" loading="lazy" />
+            {% else %}
+              <span class="rec__thumb-ph" aria-hidden="true"></span>
+            {% endif %}
+          </div>
           <div class="rec__main">
             <span class="rec__name">{{ job.title or "Untitled" }}</span>
             {% if job.artist %}<span class="rec__artist">{{ job.artist }}</span>{% endif %}

@@ -9,8 +9,10 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .. import metadata
 from ..db import get_session
 from ..models import Job
+from ..storage import get_storage
 
 router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent / "templates"))
@@ -19,7 +21,13 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent.parent
 @router.get("/", response_class=HTMLResponse)
 def index(request: Request, session: Session = Depends(get_session)):
     jobs = session.scalars(select(Job).order_by(Job.created_at.desc())).all()
-    return templates.TemplateResponse(request, "index.html", {"jobs": jobs})
+    storage = get_storage()
+    thumbs = {
+        job.id: f"{storage.url(ref[0])}?v={ref[1]}"
+        for job in jobs
+        if (ref := metadata.thumbnail_ref(job.id))
+    }
+    return templates.TemplateResponse(request, "index.html", {"jobs": jobs, "thumbs": thumbs})
 
 
 @router.get("/jobs/{job_id}", response_class=HTMLResponse)

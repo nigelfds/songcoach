@@ -171,6 +171,14 @@ a { color: inherit; }
 }
 .rec:hover { border-color: var(--amber); background: var(--panel-2); }
 .rec:active { transform: translateY(1px); }
+.rec__thumb {
+  flex: none; width: 60px; height: 40px; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--line); background: var(--bg);
+  display: grid; place-items: center;
+}
+.rec__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.rec__thumb-ph { color: var(--ink-faint); font-family: var(--font-mono); font-size: 1rem; line-height: 1; }
+.rec__thumb-ph::before { content: "\266A"; } /* ♪ */
 .rec__main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: .15rem; }
 .rec__name { color: var(--ink); font-weight: 600; font-size: .98rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rec__artist { color: var(--ink-dim); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -223,6 +231,20 @@ a { color: inherit; }
 .console { min-height: 100dvh; padding: 1rem clamp(.8rem,4vw,2rem) 7.5rem; max-width: 1080px; margin: 0 auto; }
 .console__head { display: flex; align-items: center; gap: 1rem; padding: .5rem 0 1.4rem; }
 .console__head .link-back { font-size: 1.4rem; margin: 0; padding: .2rem .6rem; border: 1px solid var(--line); border-radius: 10px; }
+.console__thumb {
+  flex: none; width: 72px; height: 48px; border-radius: 10px;
+  object-fit: cover; border: 1px solid var(--line);
+  box-shadow: 0 4px 12px -6px rgba(40,34,24,.4);
+}
+.icon-btn {
+  margin-left: auto; flex: none; width: 40px; height: 40px;
+  display: grid; place-items: center; cursor: pointer; font-size: 1.05rem;
+  background: var(--panel-2); color: var(--ink-dim);
+  border: 1px solid var(--line); border-radius: 10px;
+  transition: border-color .2s, color .2s, transform .1s;
+}
+.icon-btn:hover { border-color: var(--amber); color: var(--amber); }
+.icon-btn:active { transform: scale(.94); }
 .console__title h1 {
   font-family: var(--font-display); font-weight: 700; font-size: clamp(1.1rem, 4.5vw, 1.7rem);
   margin: .15rem 0 0; line-height: 1.15;
@@ -316,3 +338,26 @@ a { color: inherit; }
   .strips { gap: 1.1rem; }
   .strip { padding: 1.1rem 1.3rem 1.2rem; }
 }
+
+/* ---- edit metadata dialog ---- */
+.edit-overlay {
+  position: fixed; inset: 0; z-index: 50; display: grid; place-items: center;
+  padding: 1.2rem; background: rgba(30,26,20,.4); backdrop-filter: blur(3px);
+}
+.edit-card {
+  position: relative; width: 100%; max-width: 440px;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: clamp(1.5rem, 5vw, 2rem);
+}
+.edit-actions { display: flex; align-items: center; justify-content: flex-end; gap: .6rem; margin-top: 1.1rem; }
+.btn-primary {
+  font-family: var(--font-display); font-weight: 700; letter-spacing: .05em; font-size: .9rem;
+  background: linear-gradient(180deg, var(--amber-hot), var(--amber)); color: #241300;
+  border: none; border-radius: 999px; padding: .55rem 1.4rem; cursor: pointer;
+  box-shadow: 0 6px 16px -6px rgba(232,118,10,.5);
+  transition: transform .12s, filter .2s;
+}
+.btn-primary:hover { filter: brightness(1.05); }
+.btn-primary:active { transform: translateY(1px); }
+.btn-primary:disabled { filter: grayscale(.4) brightness(.85); cursor: wait; }

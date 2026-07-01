@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import recording
+from .. import fetch_thumbnails, metadata, recording
 from ..db import get_session
 from ..models import Job, JobStatus
 from ..pipeline.recorder import RecorderError
@@ -16,6 +16,12 @@ router = APIRouter(prefix="/api", tags=["api"])
 
 
 class StartRecordingIn(BaseModel):
+    title: str
+    artist: str | None = None
+    youtube_url: str | None = None
+
+
+class UpdateJobIn(BaseModel):
     title: str
     artist: str | None = None
     youtube_url: str | None = None
@@ -34,6 +40,7 @@ class JobOut(BaseModel):
     title: str | None
     artist: str | None
     youtube_url: str | None
+    thumbnail_url: str | None
     duration_seconds: float | None
     error: str | None
     tracks: list[TrackOut]
@@ -48,9 +55,12 @@ def _serialize(job: Job) -> JobOut:
                 TrackOut(kind=t.kind.value, url=storage.url(t.storage_key),
                          duration_seconds=t.duration_seconds)
             )
+    thumb = metadata.thumbnail_ref(job.id)
+    thumbnail_url = f"{storage.url(thumb[0])}?v={thumb[1]}" if thumb else None
     return JobOut(
         id=job.id, status=job.status.value, progress=job.progress,
         title=job.title, artist=job.artist, youtube_url=job.youtube_url,
+        thumbnail_url=thumbnail_url,
         duration_seconds=job.duration_seconds, error=job.error, tracks=tracks,
     )
 
@@ -96,4 +106,33 @@ def get_job(job_id: str, session: Session = Depends(get_session)):
     job = session.get(Job, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
+    return _serialize(job)
+
+
+@router.patch("/jobs/{job_id}", response_model=JobOut)
+def update_job(job_id: str, payload: UpdateJobIn, session: Session = Depends(get_session)):
+    """Edit a recording's metadata; writes through to the sidecar and DB.
+
+    If the YouTube URL changed, refresh the thumbnail in the background.
+    """
+    job = session.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    title = payload.title.strip()
+    if not title:
+        raise HTTPException(status_code=422, detail="A song name is required.")
+
+    old_url = job.youtube_url
+    job.title = title
+    job.artist = (payload.artist or "").strip() or None
+    job.youtube_url = (payload.youtube_url or "").strip() or None
+    session.commit()
+
+    # Keep the sidecar (source of truth) in step with the DB cache.
+    metadata.write_meta(job)
+
+    if job.youtube_url != old_url:
+        fetch_thumbnails.refresh_job_thumbnail_async(job_id)
+
     return _serialize(job)

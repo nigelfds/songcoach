@@ -15,6 +15,7 @@ import argparse
 import json
 import logging
 import re
+import threading
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlparse
@@ -22,12 +23,11 @@ from urllib.request import Request, urlopen
 
 from . import rebuild
 from .db import SessionLocal
-from .metadata import META_FILENAME, job_dir
+from .metadata import META_FILENAME, THUMB_FILENAME, job_dir, thumbnail_path, write_meta
 from .models import Job
 
 log = logging.getLogger("songcoach.thumbnails")
 
-THUMB_FILENAME = "thumbnail.jpg"
 # Best → worst; a missing maxres/sd returns a tiny gray placeholder, so we also
 # gate on byte size below.
 _QUALITIES = ["maxresdefault", "sddefault", "hqdefault"]
@@ -124,6 +124,38 @@ def run(*, force: bool = False) -> int:
 
     log.info("Done — %d thumbnail(s) fetched", fetched)
     return fetched
+
+
+def refresh_job_thumbnail(job_id: str) -> None:
+    """Re-sync one job's thumbnail to its current youtube_url, in its own session.
+
+    Clears any stale image first (the old one no longer matches a changed URL),
+    fetches a fresh one if a valid URL is set, then rewrites the sidecar so its
+    ``thumbnail`` key tracks the file.
+    """
+    session = SessionLocal()
+    try:
+        job = session.get(Job, job_id)
+        if job is None:
+            return
+        thumbnail_path(job_id).unlink(missing_ok=True)
+        vid = video_id(job.youtube_url or "")
+        if vid:
+            data = fetch_thumbnail(vid)
+            if data:
+                dest = thumbnail_path(job_id)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(data)
+                log.info("Refreshed thumbnail for %s (%d KB)", job_id, len(data) // 1024)
+            else:
+                log.warning("No thumbnail available for %s (%s)", job_id, job.youtube_url)
+        write_meta(job)
+    finally:
+        session.close()
+
+
+def refresh_job_thumbnail_async(job_id: str) -> None:
+    threading.Thread(target=refresh_job_thumbnail, args=(job_id,), daemon=True).start()
 
 
 def main() -> None:

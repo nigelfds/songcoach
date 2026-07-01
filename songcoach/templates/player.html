@@ -21,11 +21,13 @@
   <main id="player" class="console" hidden>
     <header class="console__head">
       <a class="link-back" href="/">‹</a>
+      <img id="console-thumb" class="console__thumb" alt="" hidden />
       <div class="console__title">
         <span class="console__meta">NOW LOOPING</span>
         <h1 id="track-title">—</h1>
         <span class="console__artist" id="track-artist"></span>
       </div>
+      <button id="edit-open" class="icon-btn" type="button" title="Edit details" aria-label="Edit details">✎</button>
     </header>
 
     <div class="strips" id="strips"><!-- channel strips injected here --></div>
@@ -51,6 +53,29 @@
       </div>
     </footer>
   </main>
+
+  <!-- EDIT METADATA -->
+  <div id="edit-overlay" class="edit-overlay" hidden>
+    <div class="edit-card" role="dialog" aria-modal="true" aria-label="Edit recording">
+      <div class="rack-screws"><i></i><i></i><i></i><i></i></div>
+      <span class="tape__label">Edit recording</span>
+      <div class="meta">
+        <input id="edit-song" class="meta__in" type="text" maxlength="120"
+               autocomplete="off" spellcheck="false" placeholder="Song name" />
+        <div class="meta__row">
+          <input id="edit-artist" class="meta__in" type="text" maxlength="120"
+                 autocomplete="off" spellcheck="false" placeholder="Artist (optional)" />
+          <input id="edit-url" class="meta__in" type="url" inputmode="url"
+                 autocomplete="off" spellcheck="false" placeholder="YouTube URL (optional)" />
+        </div>
+      </div>
+      <p class="jack__error" id="edit-error" role="alert"></p>
+      <div class="edit-actions">
+        <button id="edit-cancel" class="chip chip--ghost" type="button">CANCEL</button>
+        <button id="edit-save" class="btn-primary" type="button">SAVE</button>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 {% block scripts %}<script type="module" src="/static/js/player.js"></script>{% endblock %}

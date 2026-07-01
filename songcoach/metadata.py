@@ -19,6 +19,7 @@ from .models import Job
 
 SCHEMA_VERSION = 1
 META_FILENAME = "meta.json"
+THUMB_FILENAME = "thumbnail.jpg"
 
 
 def job_dir(job_id: str) -> Path:
@@ -29,12 +30,28 @@ def meta_path(job_id: str) -> Path:
     return job_dir(job_id) / META_FILENAME
 
 
+def thumbnail_path(job_id: str) -> Path:
+    return job_dir(job_id) / THUMB_FILENAME
+
+
+def thumbnail_ref(job_id: str) -> tuple[str, int] | None:
+    """(storage_key, version) for the job's thumbnail if on disk, else None.
+
+    The version is the file mtime; append it as a query param so a refreshed
+    thumbnail (same filename) busts the browser cache.
+    """
+    p = thumbnail_path(job_id)
+    if p.exists():
+        return f"jobs/{job_id}/{THUMB_FILENAME}", int(p.stat().st_mtime)
+    return None
+
+
 def _iso(dt: datetime | None) -> str | None:
     return dt.astimezone(timezone.utc).isoformat() if dt else None
 
 
 def to_dict(job: Job) -> dict:
-    return {
+    data = {
         "schema_version": SCHEMA_VERSION,
         "id": job.id,
         "title": job.title,
@@ -53,6 +70,9 @@ def to_dict(job: Job) -> dict:
             for t in job.tracks
         ],
     }
+    if thumbnail_path(job.id).exists():
+        data["thumbnail"] = THUMB_FILENAME
+    return data
 
 
 def write_meta(job: Job) -> Path:
