@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from .. import metadata
 from ..db import SessionLocal
 from ..models import Job, JobStatus, Track, TrackKind
 from ..storage import get_storage
@@ -82,6 +83,9 @@ def process_capture(job_id: str) -> None:
                 )
 
             _set(session, job, status=JobStatus.done, progress=100, error=None)
+            # Write the JSON sidecar — the durable source of truth alongside the
+            # stems; the SQLite row is just a cache of this.
+            metadata.write_meta(job)
             log.info("Job %s complete: %s", job_id, job.title)
 
         # Reclaim the raw capture now that the stems are published.
