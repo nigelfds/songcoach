@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     ytdlp_cookies: str | None = None            # raw contents (Heroku config var)
     ytdlp_cookies_from_browser: str | None = None  # e.g. "chrome", "safari", "firefox"
 
+    # Native system-audio capture (macOS ScreenCaptureKit helper).
+    # Path to the compiled `syscap` binary; relative paths resolve from repo root.
+    syscap_bin: str = "native/syscap"
+
     # Demucs
     demucs_model: str = "htdemucs"
     stem_format: str = "mp3"

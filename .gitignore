@@ -19,6 +19,9 @@ data/
 *.sqlite3
 separated/
 
+# Compiled native helper (built from native/syscap.swift)
+native/syscap
+
 # Editor / OS
 .DS_Store
 .idea/
