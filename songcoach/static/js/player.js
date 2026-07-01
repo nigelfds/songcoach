@@ -4,10 +4,11 @@ import RegionsPlugin from "https://unpkg.com/wavesurfer.js@7/dist/plugins/region
 const app = document.getElementById("app");
 const jobId = app.dataset.jobId;
 
+// color = played (progress), dim = unplayed waveform, tuned for the light UI.
 const KINDS = [
-  { kind: "original", name: "FULL SONG", sub: "reference mix", color: "#b48cff", dim: "#5b4d78" },
-  { kind: "drums",    name: "DRUMS",     sub: "the kit, solo", color: "#ff9e40", dim: "#7a5326" },
-  { kind: "no_drums", name: "NO DRUMS",  sub: "play along",    color: "#37d0c0", dim: "#256b64" },
+  { kind: "original", name: "FULL SONG", sub: "reference mix", color: "#6d45e6", dim: "#c9bcf5" },
+  { kind: "drums",    name: "DRUMS",     sub: "the kit, solo", color: "#e8760a", dim: "#f6cf9f" },
+  { kind: "no_drums", name: "NO DRUMS",  sub: "play along",    color: "#0e9e90", dim: "#a6ded7" },
 ];
 
 const STAGE_LABEL = {
@@ -102,7 +103,7 @@ function initPlayer(job) {
       height: 72,
       waveColor: meta.dim,
       progressColor: meta.color,
-      cursorColor: "#e9e4d8",
+      cursorColor: "#1c1b18",
       cursorWidth: 1,
       barWidth: 2,
       barGap: 1,

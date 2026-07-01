@@ -1,26 +1,26 @@
 /* ============================================================
-   SongCoach — studio-rack UI
+   SongCoach — studio-rack UI (daylight console)
    ============================================================ */
 :root {
-  --bg:        #0c0e0f;
-  --bg-2:      #101314;
-  --panel:     #16191b;
-  --panel-2:   #1c2023;
-  --line:      #2b3033;
-  --line-soft: #23282b;
-  --ink:       #e9e4d8;
-  --ink-dim:   #8b9297;
-  --ink-faint: #5a6166;
+  --bg:        #e4e1da;   /* room / recessed */
+  --bg-2:      #ece9e2;
+  --panel:     #faf8f4;   /* panel face */
+  --panel-2:   #ffffff;   /* raised */
+  --line:      #cfc9bd;   /* hairline */
+  --line-soft: #e0dccf;
+  --ink:       #1c1b18;   /* near-black warm */
+  --ink-dim:   #6a665c;
+  --ink-faint: #a39d90;
 
-  --amber:     #ff9e40;   /* signal / primary */
-  --amber-hot: #ffb454;
-  --teal:      #37d0c0;   /* no-drums channel */
-  --violet:    #b48cff;   /* original channel */
-  --green:     #7ee081;   /* transport / go */
-  --red:       #ff5c5c;
+  --amber:     #e8760a;   /* signal / primary — deepened for light */
+  --amber-hot: #ff9e40;   /* gradient top / LED glow */
+  --teal:      #0e9e90;   /* no-drums channel */
+  --violet:    #6d45e6;   /* original channel */
+  --green:     #1f9e4b;   /* transport / go */
+  --red:       #dc3a3a;
 
   --radius: 14px;
-  --shadow: 0 18px 40px -18px rgba(0,0,0,.8), 0 2px 0 rgba(255,255,255,.02) inset;
+  --shadow: 0 20px 45px -24px rgba(40,34,24,.35), 0 1px 0 rgba(255,255,255,.7) inset;
   --font-display: 'Archivo', system-ui, sans-serif;
   --font-body: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
@@ -34,18 +34,17 @@ html, body { margin: 0; }
 body {
   min-height: 100dvh;
   background:
-    radial-gradient(120% 80% at 50% -10%, #15191b 0%, var(--bg) 55%) fixed;
+    radial-gradient(120% 80% at 50% -10%, #fcfaf6 0%, var(--bg) 62%) fixed;
   color: var(--ink);
   font-family: var(--font-body);
-  -webkit-font-smoothing: antialiased;
   letter-spacing: .01em;
 }
 
-/* film grain overlay */
+/* paper-tooth grain overlay */
 .grain {
-  position: fixed; inset: 0; pointer-events: none; z-index: 999; opacity: .05;
+  position: fixed; inset: 0; pointer-events: none; z-index: 999; opacity: .04;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  mix-blend-mode: overlay;
+  mix-blend-mode: multiply;
 }
 
 a { color: inherit; }
@@ -54,8 +53,8 @@ a { color: inherit; }
 .rack-screws { position: absolute; inset: 12px; pointer-events: none; }
 .rack-screws i {
   position: absolute; width: 10px; height: 10px; border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #43494c, #14171a 70%);
-  box-shadow: 0 1px 1px rgba(0,0,0,.6), 0 0 0 1px rgba(0,0,0,.4);
+  background: radial-gradient(circle at 35% 30%, #b9b3a4, #6f6a5c 72%);
+  box-shadow: 0 1px 1px rgba(255,255,255,.65), 0 0 0 1px rgba(0,0,0,.14);
 }
 .rack-screws i:nth-child(1){ top:0; left:0 }
 .rack-screws i:nth-child(2){ top:0; right:0 }
@@ -269,8 +268,9 @@ a { color: inherit; }
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
   display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: .5rem;
   padding: .7rem clamp(.8rem,4vw,2rem) calc(.7rem + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgba(16,19,20,.85), var(--bg-2));
+  background: linear-gradient(180deg, rgba(255,255,255,.72), var(--bg-2));
   backdrop-filter: blur(14px); border-top: 1px solid var(--line);
+  box-shadow: 0 -12px 30px -22px rgba(40,34,24,.4);
 }
 .transport__center { display: flex; align-items: center; justify-content: center; gap: .7rem; }
 .tbtn {
@@ -282,8 +282,8 @@ a { color: inherit; }
 .tbtn:active { transform: scale(.94); }
 .tbtn--play {
   width: 56px; height: 56px; font-size: 1.3rem;
-  background: linear-gradient(180deg, #223f24, #16241a); border-color: #2f5233; color: var(--green);
-  box-shadow: 0 0 18px -4px rgba(126,224,129,.4);
+  background: linear-gradient(180deg, #3fbf6a, var(--green)); border-color: var(--green); color: #fff;
+  box-shadow: 0 8px 18px -6px rgba(31,158,75,.55), 0 1px 0 rgba(255,255,255,.35) inset;
 }
 .readout { font-family: var(--font-mono); font-size: .82rem; color: var(--ink-dim); white-space: nowrap; }
 .readout i { color: var(--ink-faint); margin: 0 .25rem; font-style: normal; }
