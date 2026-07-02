@@ -29,33 +29,30 @@ The rest are captured here to pick up later.
   always enabled; whole-song wrap handled on `finish`). CLEAR A–B only drops the
   section, leaving the LOOP state alone.
 
+### 6. Keyboard discoverability + polish — DONE (2026-07-03)
+- [x] "?" shortcuts dialog (opens from the header button or the `?` key; closes on
+      Escape / GOT IT / backdrop) listing Space, I/O, L, arrows, nudge modifiers,
+      Backspace.
+- [x] Space `preventDefault` guard confirmed; also added `preventDefault` on the
+      Backspace/Delete clear so it can't trigger history-back.
+
+### 7. Focus-visible states — DONE (2026-07-03)
+- [x] Amber `:focus-visible` outlines across links, icon/transport/strip buttons,
+      chips, faders, the speed select, and metadata inputs.
+
+### 8. Header layout / hierarchy — DONE (2026-07-03)
+- [x] Two-tier split (title row + transport bar) with a hairline under the header;
+      title/artist ellipsis is now container-relative (dropped the `78vw` hacks);
+      controls pinned right and no longer wrap under the title.
+
+### 9. Honest "NOW PLAYING" label — DONE (2026-07-03)
+- [x] Status now reads LOADED before playback, NOW PLAYING while playing, PAUSED
+      when stopped mid-track (driven from `updateStrips`).
+
 ### 4. Finer / two-directional speed
 Discrete 0.5/0.65/0.8/1.0 only. Drummers practice hard passages at 0.25–0.4×.
 - Continuous rate control (~0.25×–1.25×) or finer presets.
 - Surface that **pitch is preserved** (the flag is already set) so users trust slow-down.
-
-### 5. One shared timeline + playhead
-Three stacked `TimelinePlugin` rulers are redundant and eat vertical space.
-- Single shared timeline (top or bottom of the stack) and one playhead line spanning
-  all three strips.
-
-### 6. Keyboard discoverability + polish
-- A small "?" shortcuts legend / cheatsheet (Space, I/O/L, arrows, nudge modifiers).
-- Confirm no double-fire when a control has focus (Space `preventDefault` guard is in;
-  re-verify across browsers).
-
-### 7. Focus-visible states
-`.chip`, `.icon-btn`, `.strip__btn`, `.tbtn`, faders lack `:focus-visible` rings —
-keyboard tabbing is invisible. Add accent-colored focus outlines across controls.
-
-### 8. Header layout / hierarchy
-Header still packs back / thumb / title / artist / edit. With the transport split out
-it's better, but on small screens consider a cleaner two-tier title vs. transport split
-and verify wrapping.
-
-### 9. Honest "NOW PLAYING" label
-Says NOW PLAYING before anything plays. Use TRACK / LOADED until playback starts,
-then swap to NOW PLAYING.
 
 ## Quick wins / feature ideas
 - [ ] Live time labels on the loop region edges while dragging.

@@ -229,10 +229,10 @@ a { color: inherit; }
    PLAYER CONSOLE
    ============================================================ */
 .console { min-height: 100dvh; padding: 1rem clamp(.8rem,4vw,2rem) 2.5rem; max-width: 1080px; margin: 0 auto; }
-.console__head { display: flex; align-items: center; flex-wrap: wrap; gap: .7rem 1rem; padding: .5rem 0 .9rem; }
+.console__head { display: flex; align-items: center; flex-wrap: wrap; gap: .7rem 1rem; padding: .5rem 0 .9rem; margin-bottom: 1rem; border-bottom: 1px solid var(--line-soft); }
 .console__head .link-back { font-size: 1.4rem; margin: 0; padding: .2rem .6rem; border: 1px solid var(--line); border-radius: 10px; }
-.console__title { flex: 1 1 42%; min-width: 0; }
-.console__controls { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; margin-left: auto; }
+.console__title { flex: 1 1 auto; min-width: 0; }
+.console__controls { display: flex; align-items: center; gap: .5rem; margin-left: auto; flex: none; }
 .speed { display: flex; align-items: center; gap: .4rem; }
 .speed > span { font-family: var(--font-mono); font-size: .58rem; letter-spacing: .2em; color: var(--ink-faint); }
 .speed select {
@@ -257,11 +257,11 @@ a { color: inherit; }
 .console__title h1 {
   font-family: var(--font-display); font-weight: 700; font-size: clamp(1.1rem, 4.5vw, 1.7rem);
   margin: .15rem 0 0; line-height: 1.15;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 78vw;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 .console__artist {
   display: block; color: var(--ink-dim); font-size: .85rem; margin-top: .1rem;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 78vw;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
 }
 .console__artist:empty { display: none; }
 
@@ -317,6 +317,7 @@ a { color: inherit; }
 .strip__btn:active { transform: scale(.94); }
 
 /* ---- per-strip mixer: volume fader + in-the-mix toggle + ref ---- */
+.strip__vol-ico { flex: none; display: grid; place-items: center; color: var(--ink-faint); }
 .strip__vol { width: 96px; accent-color: var(--chan); cursor: pointer; }
 .strip__active { font-size: 1rem; color: transparent; }   /* unchecked = empty box */
 .strip__active[aria-pressed="true"],
@@ -414,3 +415,33 @@ a { color: inherit; }
 .btn-primary:hover { filter: brightness(1.05); }
 .btn-primary:active { transform: translateY(1px); }
 .btn-primary:disabled { filter: grayscale(.4) brightness(.85); cursor: wait; }
+
+/* ---- help / how-it-works dialog ---- */
+.help-card { max-width: 480px; }
+.help-intro {
+  margin: .9rem 0 0; color: var(--ink-dim); font-size: .92rem; line-height: 1.5;
+}
+.help-intro b { color: var(--ink); font-weight: 600; }
+.help-subhead {
+  display: block; margin: 1.2rem 0 0;
+  font-family: var(--font-mono); font-size: .62rem; letter-spacing: .28em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.shortcuts {
+  display: grid; grid-template-columns: auto 1fr; gap: .55rem .9rem;
+  margin: .7rem 0 0; align-items: baseline;
+}
+.shortcuts dt {
+  font-family: var(--font-mono); font-size: .74rem; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+  padding: .2rem .5rem; white-space: nowrap; justify-self: start;
+}
+.shortcuts dd { margin: 0; color: var(--ink-dim); font-size: .88rem; }
+
+/* ---- visible focus for keyboard users (a11y) ---- */
+.link-back:focus-visible, .icon-btn:focus-visible, .tbtn:focus-visible,
+.chip:focus-visible, .btn-primary:focus-visible, .btn-rec:focus-visible,
+.strip__btn:focus-visible, .strip__vol:focus-visible,
+.speed select:focus-visible, .meta__in:focus-visible, .rec:focus-visible {
+  outline: 2px solid var(--amber); outline-offset: 2px;
+}

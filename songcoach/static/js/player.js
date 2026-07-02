@@ -97,6 +97,7 @@ const restartBtn = document.getElementById("restart");
 const loopToggle = document.getElementById("loop-toggle");
 const sectionEl = document.getElementById("section");
 const playheadEl = document.getElementById("playhead");
+const nowStatus = document.getElementById("now-status");
 let phGeom = null;        // cached geometry mapping time -> the shared playhead's x
 
 function leader() { return channels[leaderIndex]; }
@@ -130,7 +131,13 @@ function initPlayer(job) {
     const ctrls = isRef
       ? `<button class="strip__btn strip__ref" type="button" aria-pressed="false"
                  title="Listen to the untouched full mix">REF</button>`
-      : `<input class="strip__vol" type="range" min="0" max="100" value="100"
+      : `<span class="strip__vol-ico" aria-hidden="true" title="Volume">
+           <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+             <path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 8.5a4 4 0 0 1 0 7"/>
+           </svg>
+         </span>
+         <input class="strip__vol" type="range" min="0" max="100" value="100"
                 title="Volume" aria-label="${meta.name} volume" />
          <button class="strip__btn strip__active" type="button" role="switch" aria-pressed="true"
                  title="In the mix" aria-label="${meta.name} in the mix">✓</button>`;
@@ -369,6 +376,8 @@ function updateStrips() {
   const playing = isPlaying();
   playBtn.textContent = playing ? "❚❚" : "▶";
   playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
+  const t = leader() ? leader().ws.getCurrentTime() : 0;
+  nowStatus.textContent = playing ? "NOW PLAYING" : (t > 0.05 ? "PAUSED" : "LOADED");
 }
 
 playBtn.addEventListener("click", (e) => { togglePlay(); e.currentTarget.blur(); });
@@ -479,8 +488,9 @@ speedSel.addEventListener("change", () => {
 function currentRate() { return parseFloat(speedSel.value); }
 
 document.addEventListener("keydown", (e) => {
-  // While the edit dialog is open, only Escape matters.
+  // While a dialog is open, only Escape matters.
   if (!overlay.hidden) { if (e.key === "Escape") closeEditor(); return; }
+  if (!helpOverlay.hidden) { if (e.key === "Escape") closeHelp(); return; }
   if (playerEl.hidden) return;
   const tag = (e.target.tagName || "").toLowerCase();
   if (tag === "input" || tag === "select" || tag === "textarea") return;
@@ -489,6 +499,8 @@ document.addEventListener("keydown", (e) => {
   switch (e.key) {
     case " ":
       e.preventDefault(); togglePlay(); break;   // preventDefault also stops a focused button double-firing
+    case "?":
+      openHelp(); break;
     case "i": case "I":
       setLoopStart(t); break;
     case "o": case "O":
@@ -496,7 +508,7 @@ document.addEventListener("keydown", (e) => {
     case "l": case "L":
       setLoopEnabled(!loop.enabled); break;
     case "Backspace": case "Delete":
-      clearSection(); break;
+      e.preventDefault(); clearSection(); break;
     case "ArrowLeft":
       e.preventDefault();
       if (e.altKey) nudgeBoundary("start", -NUDGE);
@@ -587,6 +599,16 @@ document.getElementById("edit-open").addEventListener("click", openEditor);
 document.getElementById("edit-cancel").addEventListener("click", closeEditor);
 editSave.addEventListener("click", saveEdit);
 overlay.addEventListener("click", (e) => { if (e.target === overlay) closeEditor(); });
+
+// ---------------------------------------------------------------------------
+// 8. Keyboard shortcuts help
+// ---------------------------------------------------------------------------
+const helpOverlay = document.getElementById("help-overlay");
+function openHelp() { helpOverlay.hidden = false; }
+function closeHelp() { helpOverlay.hidden = true; }
+document.getElementById("help-open").addEventListener("click", openHelp);
+document.getElementById("help-close").addEventListener("click", closeHelp);
+helpOverlay.addEventListener("click", (e) => { if (e.target === helpOverlay) closeHelp(); });
 
 // ---------------------------------------------------------------------------
 function fmt(sec) {

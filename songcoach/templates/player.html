@@ -23,11 +23,12 @@
       <a class="link-back" href="/">‹</a>
       <img id="console-thumb" class="console__thumb" alt="" hidden />
       <div class="console__title">
-        <span class="console__meta">NOW PLAYING</span>
+        <span class="console__meta" id="now-status">LOADED</span>
         <h1 id="track-title">—</h1>
         <span class="console__artist" id="track-artist"></span>
       </div>
       <div class="console__controls">
+        <button id="help-open" class="icon-btn" type="button" title="How this works" aria-label="Help — how this works">?</button>
         <button id="edit-open" class="icon-btn" type="button" title="Edit details" aria-label="Edit details">✎</button>
       </div>
     </header>
@@ -84,6 +85,34 @@
       <div class="edit-actions">
         <button id="edit-cancel" class="chip chip--ghost" type="button">CANCEL</button>
         <button id="edit-save" class="btn-primary" type="button">SAVE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- KEYBOARD SHORTCUTS -->
+  <div id="help-overlay" class="edit-overlay" hidden>
+    <div class="edit-card help-card" role="dialog" aria-modal="true" aria-label="How this works">
+      <div class="rack-screws"><i></i><i></i><i></i><i></i></div>
+      <span class="tape__label">How this works</span>
+      <p class="help-intro">
+        Your recording is split into stems. Blend <b>DRUMS</b> and <b>NO&nbsp;DRUMS</b>
+        with the faders and switch each one in or out of the mix — or tap <b>REF</b> to
+        hear the untouched full song. Drag across any waveform to mark an <b>A–B</b>
+        section, then <b>LOOP</b> it and ease off the <b>SPEED</b> to drill the tricky
+        bits.
+      </p>
+      <span class="help-subhead">Keyboard</span>
+      <dl class="shortcuts">
+        <dt>Space</dt><dd>Play / pause</dd>
+        <dt>I / O</dt><dd>Set section in / out (A / B) at the playhead</dd>
+        <dt>L</dt><dd>Toggle loop</dd>
+        <dt>← / →</dt><dd>Seek 5 seconds</dd>
+        <dt>⇧ ← / →</dt><dd>Nudge B (out) by 0.1s</dd>
+        <dt>⌥ ← / →</dt><dd>Nudge A (in) by 0.1s</dd>
+        <dt>Backspace</dt><dd>Clear the A–B section</dd>
+      </dl>
+      <div class="edit-actions">
+        <button id="help-close" class="btn-primary" type="button">GOT IT</button>
       </div>
     </div>
   </div>
