@@ -6,6 +6,8 @@ const app = document.getElementById("app");
 const jobId = app.dataset.jobId;
 
 // color = played (progress), dim = unplayed waveform, tuned for the light UI.
+// NOTE: `original` == `drums` + `no_drums` (Demucs two-stem output), so the two
+// stems are the real mixer; `original` is a mutually-exclusive REF full mix.
 const KINDS = [
   { kind: "original", name: "FULL SONG", sub: "reference mix", color: "#6d45e6", dim: "#c9bcf5" },
   { kind: "drums",    name: "DRUMS",     sub: "the kit, solo", color: "#e8760a", dim: "#f6cf9f" },
@@ -13,7 +15,18 @@ const KINDS = [
 ];
 
 const REGION_COLOR = "rgba(232,118,10,.16)";
-const EPS = 0.03;
+const EPS = 0.03;         // "close enough to the boundary" slop
+const DRIFT = 0.12;       // resync a stem only if it drifts past this many seconds
+const NUDGE = 0.1;        // keyboard boundary nudge, seconds
+const SEEK = 5;           // keyboard arrow seek, seconds
+
+// Pick timeline tick density: show tenth-of-a-second notches on short practice
+// clips, but coarsen for longer songs so it doesn't become a picket fence.
+function timelineOptions(dur) {
+  if (dur <= 20) return { timeInterval: 0.1, primaryLabelInterval: 10, secondaryLabelInterval: 5 };
+  if (dur <= 90) return { timeInterval: 0.5, primaryLabelInterval: 10, secondaryLabelInterval: 2 };
+  return { timeInterval: 1, primaryLabelInterval: 10, secondaryLabelInterval: 5 };
+}
 
 const STAGE_LABEL = {
   recording: "RECORDING", queued: "QUEUED", separating: "SEPARATING",
@@ -66,13 +79,29 @@ function showError(msg) {
 // ---------------------------------------------------------------------------
 // 2. Build the player
 // ---------------------------------------------------------------------------
-const channels = [];      // { kind, ws, regions, el, playBtn }
+// One shared playhead: all stems play together and are kept time-aligned.
+// Gain routing decides what you actually hear (see applyGains).
+const channels = [];      // { kind, ws, regions, el, isRef, volume, muted, solo }
 let currentJob = null;    // latest job metadata (for the editor)
-let activeIndex = 1;      // the audible track — default to DRUMS
+let leaderIndex = 0;      // the timekeeper stem that drives the readout + boundary
+let refOn = false;        // listening to the untouched FULL SONG reference
 let ready = 0;
 // A–B section selected on the waveforms: null bounds = whole track.
 let loop = { enabled: false, start: null, end: null };
-let syncing = false;      // guard while we programmatically move the playheads
+let syncing = false;      // guard while we programmatically move the playheads / regions
+
+const curEl = document.getElementById("cur");
+const durEl = document.getElementById("dur");
+const playBtn = document.getElementById("play");
+const restartBtn = document.getElementById("restart");
+const loopToggle = document.getElementById("loop-toggle");
+const sectionEl = document.getElementById("section");
+const playheadEl = document.getElementById("playhead");
+let phGeom = null;        // cached geometry mapping time -> the shared playhead's x
+
+function leader() { return channels[leaderIndex]; }
+function duration() { return leader() ? leader().ws.getDuration() : 0; }
+function clamp(t) { return Math.min(Math.max(0, t), duration() || 0); }
 
 function setThumb(url) {
   const thumb = document.getElementById("console-thumb");
@@ -93,14 +122,22 @@ function initPlayer(job) {
   const byKind = Object.fromEntries(job.tracks.map((t) => [t.kind, t]));
   const stripsEl = document.getElementById("strips");
 
-  KINDS.forEach((meta, i) => {
+  KINDS.forEach((meta) => {
     const track = byKind[meta.kind];
     if (!track) return;
+
+    const isRef = meta.kind === "original";
+    const ctrls = isRef
+      ? `<button class="strip__btn strip__ref" type="button" aria-pressed="false"
+                 title="Listen to the untouched full mix">REF</button>`
+      : `<input class="strip__vol" type="range" min="0" max="100" value="100"
+                title="Volume" aria-label="${meta.name} volume" />
+         <button class="strip__btn strip__active" type="button" role="switch" aria-pressed="true"
+                 title="In the mix" aria-label="${meta.name} in the mix">✓</button>`;
 
     const strip = document.createElement("section");
     strip.className = "strip";
     strip.dataset.kind = meta.kind;
-    strip.dataset.active = String(i === activeIndex);
     strip.innerHTML = `
       <div class="strip__top">
         <div class="strip__id">
@@ -110,41 +147,43 @@ function initPlayer(job) {
             <div class="strip__sub">${meta.sub}</div>
           </div>
         </div>
-        <div class="strip__ctrls">
-          <button class="strip__btn strip__restart" type="button" title="Back to start" aria-label="Restart">⏮</button>
-          <button class="strip__btn strip__play" type="button" title="Play / pause" aria-label="Play">▶</button>
-        </div>
+        <div class="strip__ctrls">${ctrls}</div>
       </div>
-      <div class="wave"><div class="wave__loading">DECODING…</div></div>
-      <div class="wave-tl"></div>`;
+      <div class="wave"><div class="wave__loading">DECODING…</div></div>`;
     stripsEl.appendChild(strip);
 
     const waveEl = strip.querySelector(".wave");
     const regions = RegionsPlugin.create();
-    const timeline = TimelinePlugin.create({
-      container: strip.querySelector(".wave-tl"),
-      height: 14,
-      style: { fontSize: "9px", color: "#8a857a" },
-    });
     const ws = WaveSurfer.create({
       container: waveEl,
       height: 72,
       waveColor: meta.dim,
       progressColor: meta.color,
-      cursorColor: "#1c1b18",
-      cursorWidth: 1,
+      cursorWidth: 0,      // one shared overlay playhead spans all strips instead
       barWidth: 2,
       barGap: 1,
       barRadius: 2,
       normalize: true,
       dragToSeek: false,   // dragging selects a section; click seeks
       url: track.url,
-      plugins: [regions, timeline],
+      plugins: [regions],
     });
+
+    const c = { kind: meta.kind, ws, regions, el: strip, isRef, volume: 1, active: true };
 
     ws.on("decode", () => {
       const loading = waveEl.querySelector(".wave__loading");
       if (loading) loading.remove();
+      // the leader (FULL SONG) hosts the deck's single shared timeline; register it
+      // now that the duration is known so tick density fits the track length.
+      if (isRef) {
+        ws.registerPlugin(TimelinePlugin.create({
+          container: document.getElementById("timeline"),
+          height: 22,
+          style: { fontSize: "10px", color: "#57534a" },
+          ...timelineOptions(ws.getDuration()),
+        }));
+      }
       regions.enableDragSelection({ color: REGION_COLOR });
       if (++ready === channels.length) onAllReady();
     });
@@ -153,102 +192,153 @@ function initPlayer(job) {
     regions.on("region-created", (r) => applySectionFromRegion(r));
     regions.on("region-updated", (r) => applySectionFromRegion(r));
 
-    // click to seek; clicking a quiet track makes it the audible one
-    ws.on("interaction", (newTime) => {
-      if (i !== activeIndex) setActive(i, { keepPlaying: true });
-      seekAll(newTime);
-    });
+    // click anywhere on a waveform to seek all stems together
+    ws.on("interaction", (newTime) => seekAll(newTime));
 
     ws.on("timeupdate", (t) => {
-      if (i !== activeIndex || syncing) return;
-      syncOthers(t);
+      if (c !== leader() || syncing) return;
+      driftCorrect(t);
       handleBoundary(t);
-      document.getElementById("cur").textContent = fmt(t);
+      curEl.textContent = fmt(t);
+      updatePlayhead(t);
     });
 
-    ws.on("finish", () => updateStrips());
+    ws.on("finish", () => {
+      if (c !== leader()) return;
+      // whole-song loop: no A–B section but LOOP is on → restart from the top
+      if (loop.enabled && loop.start == null) {
+        seekAll(0);
+        channels.forEach((c) => c.ws.play());
+      }
+      updateStrips();
+    });
 
-    strip.querySelector(".strip__play").addEventListener("click", () => playStrip(i));
-    strip.querySelector(".strip__restart").addEventListener("click", () => restartStrip(i));
+    if (isRef) {
+      strip.querySelector(".strip__ref").addEventListener("click", (ev) => {
+        toggleRef();
+        ev.currentTarget.blur();
+      });
+    } else {
+      strip.querySelector(".strip__vol").addEventListener("input", (ev) => {
+        c.volume = ev.target.value / 100;
+        if (c.volume > 0) c.active = true;   // pushing a fader up brings the stem in
+        refOn = false;                        // leave REF mode; you're mixing stems
+        applyGains();
+      });
+      strip.querySelector(".strip__active").addEventListener("click", (ev) => {
+        c.active = !c.active;
+        refOn = false;                        // toggling a stem exits REF mode
+        applyGains();
+        ev.currentTarget.blur();
+      });
+    }
 
-    channels.push({ kind: meta.kind, ws, regions, el: strip });
+    channels.push(c);
   });
+
+  leaderIndex = Math.max(0, channels.findIndex((c) => c.kind === "original"));
 }
 
 function onAllReady() {
   processingEl.hidden = true;
   playerEl.hidden = false;
-  const dur = channels[activeIndex].ws.getDuration();
-  document.getElementById("dur").textContent = fmt(dur);
+  durEl.textContent = fmt(duration());
   channels.forEach((c) => c.ws.setPlaybackRate(currentRate(), true));
-  updateStrips();
+  applyGains();     // sets default volumes + updates strips
+  layoutPlayhead();
 }
 
 // ---------------------------------------------------------------------------
-// 3. Transport — one track audible, all kept time-aligned
+// 3. Gain routing — drums + no_drums are the mixer; original is the REF full mix
 // ---------------------------------------------------------------------------
-function updateStrips() {
-  channels.forEach((c, idx) => {
-    const active = idx === activeIndex;
-    c.el.dataset.active = String(active);
-    c.el.querySelector(".strip__play").textContent =
-      active && c.ws.isPlaying() ? "❚❚" : "▶";
-  });
+function applyGains() {
+  if (refOn) {
+    // Reference: hear only the untouched full mix, duck the stems.
+    channels.forEach((c) => c.ws.setVolume(c.isRef ? 1 : 0));
+  } else {
+    // Mix the stems that are switched into the mix; the REF track stays silent.
+    channels.forEach((c) => {
+      if (c.isRef) { c.ws.setVolume(0); return; }
+      c.ws.setVolume(c.active ? c.volume : 0);
+    });
+  }
+  updateStrips();
 }
+
+function toggleRef() {
+  refOn = !refOn;
+  applyGains();
+}
+
+// ---------------------------------------------------------------------------
+// 4. Transport — global play/pause + restart, all stems synced
+// ---------------------------------------------------------------------------
+function isPlaying() { return !!leader() && leader().ws.isPlaying(); }
+
+function playAll() {
+  // If a section is set and we're outside it, start from A.
+  if (loop.start != null) {
+    const t = leader().ws.getCurrentTime();
+    if (t < loop.start - 0.01 || t >= loop.end - EPS) seekAll(loop.start);
+  }
+  channels.forEach((c) => c.ws.play());
+  updateStrips();
+}
+
+function pauseAll() {
+  channels.forEach((c) => c.ws.pause());
+  updateStrips();
+}
+
+function togglePlay() { isPlaying() ? pauseAll() : playAll(); }
+
+function restart() { seekAll(loop.start != null ? loop.start : 0); }
 
 function seekAll(t) {
   syncing = true;
   channels.forEach((c) => c.ws.setTime(t));
   syncing = false;
-  document.getElementById("cur").textContent = fmt(t);
+  curEl.textContent = fmt(t);
+  updatePlayhead(t);
 }
 
-function syncOthers(t) {
+// The shared playhead is a single overlay line spanning every strip, so vertical
+// alignment across the stems is obvious. It maps time -> the waveforms' x-range.
+function layoutPlayhead() {
+  if (!channels.length) return;
+  const base = document.getElementById("strips").getBoundingClientRect();
+  const first = channels[0].el.querySelector(".wave").getBoundingClientRect();
+  const last = channels[channels.length - 1].el.querySelector(".wave").getBoundingClientRect();
+  phGeom = {
+    left: first.left - base.left,
+    width: first.width,
+    top: first.top - base.top,
+    height: last.bottom - first.top,
+  };
+  playheadEl.style.top = phGeom.top + "px";
+  playheadEl.style.height = phGeom.height + "px";
+  playheadEl.hidden = false;
+  updatePlayhead(leader().ws.getCurrentTime());
+}
+
+function updatePlayhead(t) {
+  if (!phGeom) return;
+  const dur = duration() || 1;
+  const x = phGeom.left + (Math.min(Math.max(0, t), dur) / dur) * phGeom.width;
+  playheadEl.style.left = x + "px";
+}
+
+window.addEventListener("resize", () => { if (phGeom) layoutPlayhead(); });
+
+// Keep the non-leader stems locked to the leader, but only correct real drift
+// so we don't reset currentTime (and glitch audio) on every frame.
+function driftCorrect(t) {
   syncing = true;
-  channels.forEach((c, idx) => { if (idx !== activeIndex) c.ws.setTime(t); });
+  channels.forEach((c, idx) => {
+    if (idx === leaderIndex) return;
+    if (Math.abs(c.ws.getCurrentTime() - t) > DRIFT) c.ws.setTime(t);
+  });
   syncing = false;
-}
-
-function setActive(i, { keepPlaying = false } = {}) {
-  if (i === activeIndex) return;
-  const from = channels[activeIndex].ws;
-  const wasPlaying = from.isPlaying();
-  const t = from.getCurrentTime();
-  from.pause();
-  activeIndex = i;
-  const to = channels[i].ws;
-  to.setPlaybackRate(currentRate(), true);
-  to.setTime(t);
-  if (keepPlaying && wasPlaying) to.play();
-  updateStrips();
-}
-
-// Play from the section start when we're outside (or at the end of) the section.
-function startActive() {
-  const ws = channels[activeIndex].ws;
-  if (loop.start != null) {
-    const t = ws.getCurrentTime();
-    if (t < loop.start - 0.01 || t >= loop.end - EPS) seekAll(loop.start);
-  }
-  ws.play();
-  updateStrips();
-}
-
-function toggleActive() {
-  const ws = channels[activeIndex].ws;
-  if (ws.isPlaying()) { ws.pause(); updateStrips(); }
-  else startActive();
-}
-
-function playStrip(i) {
-  if (i === activeIndex) { toggleActive(); return; }
-  setActive(i, { keepPlaying: false });
-  startActive();
-}
-
-function restartStrip(i) {
-  if (i !== activeIndex) setActive(i, { keepPlaying: true });
-  seekAll(loop.start != null ? loop.start : 0);
 }
 
 // At the section end: loop back if looping, otherwise stop and park at the start.
@@ -257,21 +347,42 @@ function handleBoundary(t) {
   if (loop.enabled) {
     seekAll(loop.start);
   } else {
-    channels[activeIndex].ws.pause();
+    pauseAll();
     seekAll(loop.start);
-    updateStrips();
   }
 }
 
+function updateStrips() {
+  const anyStemActive = channels.some((c) => !c.isRef && c.active);
+  channels.forEach((c) => {
+    // audible => full-color waveform + channel glow; silent => dimmed.
+    c.el.dataset.audible = String(c.ws.getVolume() > 0.0001);
+    if (c.isRef) {
+      // REF is irrelevant while you're mixing stems, and vice-versa.
+      c.el.dataset.dimmed = String(anyStemActive && !refOn);
+      c.el.querySelector(".strip__ref")?.setAttribute("aria-pressed", String(refOn));
+    } else {
+      c.el.dataset.dimmed = String(refOn);
+      c.el.querySelector(".strip__active")?.setAttribute("aria-pressed", String(c.active));
+    }
+  });
+  const playing = isPlaying();
+  playBtn.textContent = playing ? "❚❚" : "▶";
+  playBtn.setAttribute("aria-label", playing ? "Pause" : "Play");
+}
+
+playBtn.addEventListener("click", (e) => { togglePlay(); e.currentTarget.blur(); });
+restartBtn.addEventListener("click", (e) => { restart(); e.currentTarget.blur(); });
+
 // ---------------------------------------------------------------------------
-// 4. A–B section + loop
+// 5. A–B section + loop
 // ---------------------------------------------------------------------------
 function applySectionFromRegion(region) {
   if (syncing) return;
   loop.start = region.start;
   loop.end = region.end;
   reflectRegions(region);
-  document.getElementById("loop-toggle").disabled = false;
+  updateSectionReadout();
 }
 
 // mirror the single selection across all three waveforms. Guarded by `syncing`
@@ -293,25 +404,73 @@ function reflectRegions(source) {
   }
 }
 
-const loopToggle = document.getElementById("loop-toggle");
-loopToggle.addEventListener("click", () => {
-  if (loop.start == null) return;   // nothing selected yet
-  setLoopEnabled(!loop.enabled);
-});
+// Programmatic (keyboard) region: clear everything and lay down fresh bounds.
+function renderRegion() {
+  syncing = true;
+  try {
+    channels.forEach((c) => {
+      c.regions.getRegions().forEach((r) => r.remove());
+      c.regions.addRegion({
+        start: loop.start, end: loop.end,
+        color: REGION_COLOR, drag: true, resize: true,
+      });
+    });
+  } finally {
+    syncing = false;
+  }
+  updateSectionReadout();
+}
+
+const MIN_SECTION = 0.1;   // shortest A–B section we allow, seconds
+
+function setLoopStart(t) {
+  t = clamp(t);
+  if (loop.end == null || loop.end - t < MIN_SECTION) loop.end = clamp(t + 2);
+  // guard against the extremes clamping start and end together
+  loop.start = Math.min(t, loop.end - MIN_SECTION);
+  renderRegion();
+}
+
+function setLoopEnd(t) {
+  t = clamp(t);
+  if (loop.start == null || t - loop.start < MIN_SECTION) loop.start = clamp(t - 2);
+  loop.end = Math.max(t, loop.start + MIN_SECTION);
+  renderRegion();
+}
+
+function nudgeBoundary(which, delta) {
+  if (loop.start == null) return;
+  if (which === "start") loop.start = Math.min(clamp(loop.start + delta), loop.end - 0.05);
+  else loop.end = Math.max(clamp(loop.end + delta), loop.start + 0.05);
+  renderRegion();
+}
+
+function updateSectionReadout() {
+  if (loop.start == null) { sectionEl.hidden = true; return; }
+  const len = (loop.end - loop.start).toFixed(1);
+  sectionEl.innerHTML = `<b>A</b> ${fmt1(loop.start)} &nbsp; <b>B</b> ${fmt1(loop.end)} &nbsp; ${len}s`;
+  sectionEl.hidden = false;
+}
+
 function setLoopEnabled(on) {
   loop.enabled = on;
   loopToggle.setAttribute("aria-pressed", String(on));
 }
 
-document.getElementById("loop-clear").addEventListener("click", () => {
-  loop = { enabled: false, start: null, end: null };
+// CLEAR A–B just drops the section; the LOOP state is left alone (so it falls
+// back to looping the whole song if LOOP is on).
+function clearSection() {
+  loop.start = null;
+  loop.end = null;
   channels.forEach((c) => c.regions.clearRegions());
-  setLoopEnabled(false);
-  loopToggle.disabled = true;
-});
+  updateSectionReadout();
+}
+
+loopToggle.addEventListener("click", () => setLoopEnabled(!loop.enabled));
+document.getElementById("loop-clear").addEventListener("click", clearSection);
 
 // ---------------------------------------------------------------------------
-// 5. Speed + keyboard
+// 6. Speed + keyboard
 // ---------------------------------------------------------------------------
 const speedSel = document.getElementById("speed");
 speedSel.addEventListener("change", () => {
@@ -319,16 +478,42 @@ speedSel.addEventListener("change", () => {
 });
 function currentRate() { return parseFloat(speedSel.value); }
 
-// space = play/pause the audible track (but not while the edit dialog is open)
 document.addEventListener("keydown", (e) => {
-  if (e.code === "Space" && playerEl && !playerEl.hidden && overlay.hidden) {
-    e.preventDefault();
-    toggleActive();
+  // While the edit dialog is open, only Escape matters.
+  if (!overlay.hidden) { if (e.key === "Escape") closeEditor(); return; }
+  if (playerEl.hidden) return;
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "select" || tag === "textarea") return;
+
+  const t = leader() ? leader().ws.getCurrentTime() : 0;
+  switch (e.key) {
+    case " ":
+      e.preventDefault(); togglePlay(); break;   // preventDefault also stops a focused button double-firing
+    case "i": case "I":
+      setLoopStart(t); break;
+    case "o": case "O":
+      setLoopEnd(t); break;
+    case "l": case "L":
+      setLoopEnabled(!loop.enabled); break;
+    case "Backspace": case "Delete":
+      clearSection(); break;
+    case "ArrowLeft":
+      e.preventDefault();
+      if (e.altKey) nudgeBoundary("start", -NUDGE);
+      else if (e.shiftKey) nudgeBoundary("end", -NUDGE);
+      else seekAll(clamp(t - SEEK));
+      break;
+    case "ArrowRight":
+      e.preventDefault();
+      if (e.altKey) nudgeBoundary("start", NUDGE);
+      else if (e.shiftKey) nudgeBoundary("end", NUDGE);
+      else seekAll(clamp(t + SEEK));
+      break;
   }
 });
 
 // ---------------------------------------------------------------------------
-// 6. Edit metadata
+// 7. Edit metadata
 // ---------------------------------------------------------------------------
 const overlay = document.getElementById("edit-overlay");
 const editSong = document.getElementById("edit-song");
@@ -402,15 +587,18 @@ document.getElementById("edit-open").addEventListener("click", openEditor);
 document.getElementById("edit-cancel").addEventListener("click", closeEditor);
 editSave.addEventListener("click", saveEdit);
 overlay.addEventListener("click", (e) => { if (e.target === overlay) closeEditor(); });
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !overlay.hidden) closeEditor();
-});
 
 // ---------------------------------------------------------------------------
 function fmt(sec) {
   sec = Math.max(0, Math.floor(sec || 0));
   const m = Math.floor(sec / 60);
   const s = String(sec % 60).padStart(2, "0");
+  return `${m}:${s}`;
+}
+function fmt1(sec) {
+  sec = Math.max(0, sec || 0);
+  const m = Math.floor(sec / 60);
+  const s = (sec % 60).toFixed(1).padStart(4, "0");
   return `${m}:${s}`;
 }
 

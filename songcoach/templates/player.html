@@ -28,25 +28,41 @@
         <span class="console__artist" id="track-artist"></span>
       </div>
       <div class="console__controls">
-        <span class="readout"><span id="cur">0:00</span><i>/</i><span id="dur">0:00</span></span>
-        <button id="loop-toggle" class="chip" type="button" aria-pressed="false" disabled>A–B LOOP</button>
-        <button id="loop-clear" class="chip chip--ghost" type="button">CLEAR</button>
-        <label class="speed">
-          <span>SPEED</span>
-          <select id="speed">
-            <option value="0.5">0.50×</option>
-            <option value="0.65">0.65×</option>
-            <option value="0.8">0.80×</option>
-            <option value="1" selected>1.00×</option>
-          </select>
-        </label>
         <button id="edit-open" class="icon-btn" type="button" title="Edit details" aria-label="Edit details">✎</button>
       </div>
     </header>
 
-    <p class="console__hint">Drag across any waveform to pick a section — play it, or turn on A–B&nbsp;LOOP to repeat it.</p>
+    <div class="transport">
+      <div class="transport__main">
+        <button id="restart" class="tbtn" type="button" title="Back to start / A" aria-label="Restart">⏮</button>
+        <button id="play" class="tbtn tbtn--play" type="button" title="Play / pause (Space)" aria-label="Play">▶</button>
+        <span class="readout"><span id="cur">0:00</span><i>/</i><span id="dur">0:00</span></span>
+      </div>
+      <div class="transport__loop">
+        <button id="loop-toggle" class="chip" type="button" aria-pressed="false">LOOP</button>
+        <button id="loop-clear" class="chip chip--ghost" type="button">CLEAR A–B</button>
+        <span id="section" class="section-readout" hidden></span>
+      </div>
+      <label class="speed">
+        <span>SPEED</span>
+        <select id="speed">
+          <option value="0.5">0.50×</option>
+          <option value="0.65">0.65×</option>
+          <option value="0.8">0.80×</option>
+          <option value="1" selected>1.00×</option>
+        </select>
+      </label>
+    </div>
 
-    <div class="strips" id="strips"><!-- channel strips injected here --></div>
+    <p class="console__hint">Blend the stems with the faders and toggle each one in or out of the mix. <b>REF</b> plays the untouched full song. Drag any waveform (or press <b>I</b>/<b>O</b>) to set an A–B section, then <b>L</b> to loop.</p>
+
+    <div class="deck">
+      <div class="strips" id="strips">
+        <div id="playhead" class="playhead" hidden></div>
+        <!-- channel strips injected here -->
+      </div>
+      <div class="timeline-wrap"><div id="timeline" class="timeline"></div></div>
+    </div>
   </main>
 
   <!-- EDIT METADATA -->
