@@ -8,6 +8,10 @@ const error = document.getElementById("form-error");
 const song = document.getElementById("song");
 const artist = document.getElementById("artist");
 const yturl = document.getElementById("yturl");
+const ytLoadBtn = document.getElementById("yt-load-btn");
+const ytStatus = document.getElementById("yt-status");
+const ytEmbed = document.getElementById("yt-embed");
+const ytIframe = document.getElementById("yt-iframe");
 const metaInputs = [song, artist, yturl];
 
 let recording = false;
@@ -23,7 +27,52 @@ function setState(rec) {
   stateEl.textContent = rec ? "Recording…" : "Ready to capture";
   timerEl.hidden = !rec;
   metaInputs.forEach((el) => { el.disabled = rec; });
+  ytLoadBtn.disabled = rec;
 }
+
+// ---------------------------------------------------------------------------
+// YouTube: clean the pasted link, pull the title/artist, load the embed
+// ---------------------------------------------------------------------------
+function setYtStatus(msg, isError = false) {
+  ytStatus.textContent = msg || "";
+  ytStatus.hidden = !msg;
+  ytStatus.classList.toggle("yt-status--error", isError);
+}
+
+let lastLoaded = "";
+let ytBusy = false;
+async function loadYouTube() {
+  if (recording || ytBusy) return;
+  const url = yturl.value.trim();
+  if (!url) { setYtStatus(""); return; }
+  ytBusy = true;
+  ytLoadBtn.disabled = true;
+  setYtStatus("Loading…");
+  try {
+    const res = await fetch(`/api/youtube/meta?url=${encodeURIComponent(url)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || "Couldn't read that link.");
+    yturl.value = data.canonical_url;      // strip tracking/playlist params
+    lastLoaded = data.canonical_url;
+    if (data.song) song.value = data.song;
+    if (data.artist) artist.value = data.artist;
+    ytIframe.src = data.embed_url;
+    ytEmbed.hidden = false;
+    setYtStatus(data.title ? `Loaded “${data.title}”` : "Video loaded — play it, then capture.");
+  } catch (err) {
+    setYtStatus(err.message, true);
+  } finally {
+    ytBusy = false;
+    ytLoadBtn.disabled = recording;
+  }
+}
+
+ytLoadBtn.addEventListener("click", loadYouTube);
+yturl.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); loadYouTube(); } });
+// Paste-and-go: load once the pasted value has settled.
+yturl.addEventListener("paste", () => setTimeout(loadYouTube, 0));
+// Also load on blur if the field changed and hasn't been loaded yet.
+yturl.addEventListener("blur", () => { if (yturl.value.trim() && yturl.value.trim() !== lastLoaded) loadYouTube(); });
 
 function fmt(ms) {
   const s = Math.floor(ms / 1000);

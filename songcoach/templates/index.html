@@ -14,15 +14,28 @@
 
     <div class="tape">
       <span class="tape__label">New recording</span>
+
+      <!-- 1. Paste a link; we pull the title/artist and load the video -->
+      <div class="yt-load">
+        <input id="yturl" class="meta__in" type="url" inputmode="url" autocomplete="off"
+               spellcheck="false" placeholder="Paste a YouTube link" />
+        <button id="yt-load-btn" type="button" class="chip">LOAD</button>
+      </div>
+      <p id="yt-status" class="yt-status" role="status" hidden></p>
+
+      <!-- 2. Embedded player so you can play the song and capture it -->
+      <div id="yt-embed" class="yt-embed" hidden>
+        <iframe id="yt-iframe" title="YouTube video player" allowfullscreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      </div>
+
+      <!-- 3. Details (auto-filled from the link, editable) -->
       <div class="meta">
         <input id="song" class="meta__in" type="text" maxlength="120" autocomplete="off"
                spellcheck="false" placeholder="Song name" required />
-        <div class="meta__row">
-          <input id="artist" class="meta__in" type="text" maxlength="120" autocomplete="off"
-                 spellcheck="false" placeholder="Artist (optional)" />
-          <input id="yturl" class="meta__in" type="url" inputmode="url" autocomplete="off"
-                 spellcheck="false" placeholder="YouTube URL (optional)" />
-        </div>
+        <input id="artist" class="meta__in" type="text" maxlength="120" autocomplete="off"
+               spellcheck="false" placeholder="Artist (optional)" />
       </div>
 
       <div class="tape__status">
@@ -35,7 +48,7 @@
         <span class="btn-rec__label">START CAPTURE</span>
       </button>
       <p class="jack__error" id="form-error" role="alert"></p>
-      <p class="tape__hint">Play the song through your Mac — a YouTube tab, Spotify, a file — then stop to separate it.</p>
+      <p class="tape__hint">Press play above, then <b>START CAPTURE</b> and let the part play through — or capture any other audio on your Mac (Spotify, a file). Stop to separate it.</p>
     </div>
   </div>
 
@@ -57,9 +70,9 @@
             <span class="rec__name">{{ job.title or "Untitled" }}</span>
             {% if job.artist %}<span class="rec__artist">{{ job.artist }}</span>{% endif %}
           </div>
-          <div class="rec__files">
+          <div class="rec__action">
             {% if job.status.value == 'done' %}
-              {% for t in job.tracks %}<span class="chip chip--file">{{ t.kind.value.replace('_', ' ') }}</span>{% endfor %}
+              <span class="rec__practice">Practice</span>
             {% else %}
               <span class="rec__badge" data-status="{{ job.status.value }}">{{ job.status.value }}</span>
             {% endif %}

@@ -6,13 +6,22 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import fetch_thumbnails, metadata, recording
+from .. import fetch_thumbnails, metadata, recording, youtube
 from ..db import get_session
 from ..models import Job, JobStatus
 from ..pipeline.recorder import RecorderError
 from ..storage import get_storage
 
 router = APIRouter(prefix="/api", tags=["api"])
+
+
+class YouTubeMetaOut(BaseModel):
+    video_id: str
+    canonical_url: str
+    embed_url: str
+    title: str
+    song: str
+    artist: str | None
 
 
 class StartRecordingIn(BaseModel):
@@ -93,6 +102,22 @@ def stop_recording(session: Session = Depends(get_session)):
 @router.get("/recordings/status")
 def recording_status():
     return {"recording": recording.is_recording()}
+
+
+@router.get("/youtube/meta", response_model=YouTubeMetaOut)
+def youtube_meta(url: str):
+    """Clean a pasted YouTube URL and pull its title/artist for the form."""
+    info = youtube.lookup(url)
+    if not info:
+        raise HTTPException(status_code=422, detail="That doesn't look like a YouTube link.")
+    return YouTubeMetaOut(
+        video_id=info["video_id"],
+        canonical_url=info["canonical_url"],
+        embed_url=info["embed_url"],
+        title=info["title"],
+        song=info["song"],
+        artist=info["artist"] or None,
+    )
 
 
 @router.get("/jobs", response_model=list[JobOut])

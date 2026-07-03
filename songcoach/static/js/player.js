@@ -20,12 +20,14 @@ const DRIFT = 0.12;       // resync a stem only if it drifts past this many seco
 const NUDGE = 0.1;        // keyboard boundary nudge, seconds
 const SEEK = 5;           // keyboard arrow seek, seconds
 
-// Pick timeline tick density: show tenth-of-a-second notches on short practice
-// clips, but coarsen for longer songs so it doesn't become a picket fence.
+// Timeline density. NOTE: primary/secondaryLabelInterval are in SECONDS. Fine
+// notches on short clips; on long songs the labels are spaced out (dark 30s /
+// light 15s) so they don't crowd, and the dark primary labels also drop to a
+// second row below the ruler — see the #timeline CSS.
 function timelineOptions(dur) {
   if (dur <= 20) return { timeInterval: 0.1, primaryLabelInterval: 10, secondaryLabelInterval: 5 };
-  if (dur <= 90) return { timeInterval: 0.5, primaryLabelInterval: 10, secondaryLabelInterval: 2 };
-  return { timeInterval: 1, primaryLabelInterval: 10, secondaryLabelInterval: 5 };
+  if (dur <= 120) return { timeInterval: 1, primaryLabelInterval: 10, secondaryLabelInterval: 5 };
+  return { timeInterval: 5, primaryLabelInterval: 30, secondaryLabelInterval: 15 };
 }
 
 const STAGE_LABEL = {

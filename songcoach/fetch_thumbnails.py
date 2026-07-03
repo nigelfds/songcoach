@@ -14,46 +14,22 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import re
 import threading
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs, urlparse
 from urllib.request import Request, urlopen
 
 from . import rebuild
 from .db import SessionLocal
 from .metadata import META_FILENAME, THUMB_FILENAME, job_dir, thumbnail_path, write_meta
 from .models import Job
+from .youtube import video_id
 
 log = logging.getLogger("songcoach.thumbnails")
 
 # Best → worst; a missing maxres/sd returns a tiny gray placeholder, so we also
 # gate on byte size below.
 _QUALITIES = ["maxresdefault", "sddefault", "hqdefault"]
-_ID_RE = re.compile(r"^[A-Za-z0-9_-]{11}$")
-
-
-def video_id(url: str) -> str | None:
-    """Extract the 11-char video id from the common YouTube URL shapes."""
-    try:
-        u = urlparse(url)
-    except ValueError:
-        return None
-    host = (u.hostname or "").lower()
-    host = host[4:] if host.startswith("www.") else host
-
-    if host == "youtu.be":
-        cand = u.path.lstrip("/").split("/")[0]
-        return cand if _ID_RE.match(cand) else None
-    if host.endswith("youtube.com"):
-        if u.path == "/watch":
-            v = parse_qs(u.query).get("v", [None])[0]
-            return v if v and _ID_RE.match(v) else None
-        parts = u.path.strip("/").split("/")
-        if len(parts) >= 2 and parts[0] in ("shorts", "embed", "v", "live"):
-            return parts[1] if _ID_RE.match(parts[1]) else None
-    return None
 
 
 def _download(url: str) -> bytes | None:
