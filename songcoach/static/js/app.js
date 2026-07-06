@@ -11,13 +11,22 @@ const yturl = document.getElementById("yturl");
 const ytLoadBtn = document.getElementById("yt-load-btn");
 const ytStatus = document.getElementById("yt-status");
 const ytEmbed = document.getElementById("yt-embed");
-const ytIframe = document.getElementById("yt-iframe");
 const metaInputs = [song, artist, yturl];
+
+const TAIL_MS = 400;      // keep capturing briefly after the video ends
 
 let recording = false;
 let busy = false;
 let timerId = null;
 let startedAt = 0;
+
+// YouTube IFrame player state
+let player = null;        // YT.Player instance (once the API is ready)
+let ytApiReady = false;
+let pendingVideoId = null;
+let currentVideoId = null;
+let embeddable = true;    // flips false if the player reports it can't embed
+let ending = false;       // guard so ENDED only auto-stops once
 
 function setState(rec) {
   recording = rec;
@@ -56,9 +65,11 @@ async function loadYouTube() {
     lastLoaded = data.canonical_url;
     if (data.song) song.value = data.song;
     if (data.artist) artist.value = data.artist;
-    ytIframe.src = data.embed_url;
-    ytEmbed.hidden = false;
-    setYtStatus(data.title ? `Loaded “${data.title}”` : "Video loaded — play it, then capture.");
+    embeddable = true;
+    currentVideoId = data.video_id;
+    ytEmbed.hidden = false;                // reveal before building the player so it has size
+    cueVideo(currentVideoId);
+    setYtStatus(data.title ? `Loaded “${data.title}”` : "Video loaded — hit start to play & capture.");
   } catch (err) {
     setYtStatus(err.message, true);
   } finally {
@@ -73,6 +84,57 @@ yturl.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDef
 yturl.addEventListener("paste", () => setTimeout(loadYouTube, 0));
 // Also load on blur if the field changed and hasn't been loaded yet.
 yturl.addEventListener("blur", () => { if (yturl.value.trim() && yturl.value.trim() !== lastLoaded) loadYouTube(); });
+
+// ---------------------------------------------------------------------------
+// YouTube IFrame API: play the embed on capture, detect when it ends
+// ---------------------------------------------------------------------------
+(function loadYouTubeApi() {
+  const s = document.createElement("script");
+  s.src = "https://www.youtube.com/iframe_api";
+  document.head.appendChild(s);
+})();
+
+// The API invokes this global once it has loaded.
+window.onYouTubeIframeAPIReady = () => {
+  ytApiReady = true;
+  if (pendingVideoId) { cueVideo(pendingVideoId); pendingVideoId = null; }
+};
+
+function cueVideo(id) {
+  if (!ytApiReady) { pendingVideoId = id; return; }  // build it once the API arrives
+  if (!player) {
+    player = new YT.Player("yt-iframe", {
+      videoId: id,
+      playerVars: { rel: 0, modestbranding: 1, playsinline: 1, origin: location.origin },
+      events: { onStateChange: onPlayerState, onError: onPlayerError },
+    });
+  } else {
+    player.cueVideoById(id);   // load, don't autoplay
+  }
+}
+
+function videoReady() { return !!player && !!currentVideoId && embeddable; }
+
+function playLoadedVideo() {
+  if (!videoReady()) return;
+  ending = false;
+  try { player.unMute(); player.setVolume(100); player.playVideo(); } catch {}
+}
+
+function onPlayerState(e) {
+  // ENDED (0): the song finished → stop capture after a short tail so syscap
+  // flushes the last of the audio.
+  if (e.data === YT.PlayerState.ENDED && recording && !ending) {
+    ending = true;
+    setTimeout(() => triggerStop({ auto: true }), TAIL_MS);
+  }
+}
+
+function onPlayerError() {
+  // e.g. the owner disabled embedding — auto play/stop can't work here.
+  embeddable = false;
+  setYtStatus("This video can't be embedded — play the source yourself, then stop.", true);
+}
 
 function fmt(ms) {
   const s = Math.floor(ms / 1000);
@@ -118,13 +180,14 @@ async function end() {
   window.location.href = `/jobs/${data.id}`;
 }
 
-btn.addEventListener("click", async () => {
-  if (busy) return;
+async function triggerStart() {
+  if (busy || recording) return;
   busy = true;
   btn.disabled = true;
   error.textContent = "";
   try {
-    await (recording ? end() : begin());
+    await begin();          // start capturing first…
+    playLoadedVideo();      // …then, if a video is loaded, unmute + play it
   } catch (err) {
     error.textContent = err.message;
     stopTimer();
@@ -133,7 +196,28 @@ btn.addEventListener("click", async () => {
     busy = false;
     btn.disabled = false;
   }
-});
+}
+
+async function triggerStop({ auto = false } = {}) {
+  if (busy || !recording) return;
+  busy = true;
+  btn.disabled = true;
+  error.textContent = "";
+  try {
+    // A manual stop also pauses the source; an auto stop follows the video ending.
+    if (player && !auto) { try { player.pauseVideo(); } catch {} }
+    await end();            // stop capture → redirect to the player
+  } catch (err) {
+    error.textContent = err.message;
+    stopTimer();
+    setState(false);
+  } finally {
+    busy = false;
+    btn.disabled = false;
+  }
+}
+
+btn.addEventListener("click", () => (recording ? triggerStop() : triggerStart()));
 
 // A capture may already be running (e.g. the page was reloaded mid-record) —
 // reflect that so the button offers Stop rather than a second Start.

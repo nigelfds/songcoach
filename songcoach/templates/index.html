@@ -23,11 +23,10 @@
       </div>
       <p id="yt-status" class="yt-status" role="status" hidden></p>
 
-      <!-- 2. Embedded player so you can play the song and capture it -->
+      <!-- 2. Embedded player so you can play the song and capture it. The
+           YouTube IFrame API replaces this div with the player iframe. -->
       <div id="yt-embed" class="yt-embed" hidden>
-        <iframe id="yt-iframe" title="YouTube video player" allowfullscreen
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        <div id="yt-iframe"></div>
       </div>
 
       <!-- 3. Details (auto-filled from the link, editable) -->
