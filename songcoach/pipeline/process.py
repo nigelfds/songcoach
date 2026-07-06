@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .. import metadata
+from .. import fetch_thumbnails, metadata
 from ..db import SessionLocal
 from ..models import Job, JobStatus, Track, TrackKind
 from ..storage import get_storage
@@ -55,6 +55,11 @@ def process_capture(job_id: str) -> None:
             return
         if not source.exists():
             raise RuntimeError(f"captured audio missing at {source}")
+
+        # Fetch the YouTube thumbnail (if any) in parallel with separation, so it
+        # shows in the library while the slow stem work runs.
+        if job.youtube_url:
+            fetch_thumbnails.refresh_job_thumbnail_async(job_id)
 
         with tempfile.TemporaryDirectory(prefix="songcoach-") as tmp:
             work = Path(tmp)
