@@ -197,6 +197,7 @@ a { color: inherit; }
   display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
 }
 .rec__artist { color: var(--ink-dim); font-size: .82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rec__dur { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .rec__action { flex: none; display: flex; align-items: center; }
 /* single call-to-action; the whole row already links to the player */
 .rec__practice {

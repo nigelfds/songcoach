@@ -67,7 +67,9 @@
           </div>
           <div class="rec__main">
             <span class="rec__name">{{ job.title or "Untitled" }}</span>
-            {% if job.artist %}<span class="rec__artist">{{ job.artist }}</span>{% endif %}
+            {% if job.artist or job.duration_seconds %}
+            <span class="rec__artist">{% if job.artist %}{{ job.artist }}{% endif %}{% if job.artist and job.duration_seconds %} · {% endif %}{% if job.duration_seconds %}{% set s = job.duration_seconds | int %}<span class="rec__dur">{{ s // 60 }}:{{ '%02d' | format(s % 60) }}</span>{% endif %}</span>
+            {% endif %}
           </div>
           <div class="rec__action">
             {% if job.status.value == 'done' %}
