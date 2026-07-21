@@ -46,21 +46,37 @@ Verified: dev paths resolve exactly as before; startup rebuild reindexes the rea
 > `./songcoach.db`** — each launch drops + recreates it. Stop the `uvicorn` dev
 > server before testing `python -m songcoach.desktop`.
 
-## Phase 1 — freeze to an (unsigned) .app — TODO
+## Phase 1 — freeze to an (unsigned) .app — IN PROGRESS
 
-Blockers/must-dos before this works from a bundle:
+**Done (code):**
+- **Demucs runs in-process** — `separator.py` no longer shells out to
+  `sys.executable -m demucs` (impossible when frozen). It drives Demucs' Python
+  building blocks (`get_model` / `apply_model` / `save_audio`), mirroring
+  `--two-stems drums --mp3 --mp3-bitrate 256` exactly, and caches the model.
+- **Bundled-runtime setup** — `paths.setup_runtime()` (frozen only) prepends the
+  resource dir to `PATH` (so subprocesses incl. Demucs' own ffmpeg call resolve
+  the bundled binaries) and points `TORCH_HOME` at a writable Application Support
+  dir seeded from the app's bundled weights (offline first run).
+- **`SongCoach.spec`** + **`scripts/build_macapp.sh`** — the build.
 
-1. **Demucs must run in-process.** `separator.py` currently shells out via
-   `sys.executable -m demucs`, which is impossible in a frozen app. Switch to the
-   Demucs Python API (`demucs.api.Separator`) so torch runs in-process.
-2. **Bundle helper binaries:** `native/syscap` (→ `native/syscap`), plus
-   `ffmpeg` + `ffprobe` (LGPL build; include license notice).
-3. **Bundle model weights:** ship `htdemucs` weights and point torch's hub cache at
-   them (e.g. `TORCH_HOME`) so first run works offline.
-4. PyInstaller spec: entry `songcoach/desktop.py`; `datas` for `templates/`,
-   `static/`, `native/syscap`, `ffmpeg`, `ffprobe`, model weights; a minimal empty
-   `data/` scaffold. Collect torch/demucs data files (they need runtime data).
-5. Validate capture → separation → playback entirely from the `.app`.
+**Data/DB:** not bundled at all. `ensure_dirs()` creates `data/` under
+Application Support and `rebuild()` recreates an empty `songcoach.db` on first
+launch — which *is* the "ship empty, rebuild on startup" requirement.
+
+**You provide before building** (git-ignored `vendor/`):
+- `vendor/ffmpeg`, `vendor/ffprobe` — **static arm64** builds (a dynamically
+  linked system ffmpeg won't run in the bundle; use LGPL for distribution).
+- `vendor/torch/hub/checkpoints/955717e8-8726e21a.th` — htdemucs weights (the
+  build script copies it from `~/.cache/torch` if you've separated once).
+- `native/syscap` — built by the script.
+
+**Build:** `scripts/build_macapp.sh` → `dist/SongCoach.app`. Freezing torch/demucs
+is fiddly — expect to add `hiddenimports` to the spec as PyInstaller reports
+missing modules on your machine.
+
+**Then:** validate capture → separation → playback entirely from the `.app`
+(the in-process separator is derived from the CLI source but hasn't yet been run
+on real audio end-to-end — do this here).
 
 ## Phase 2 — sign, notarize, DMG — TODO (needs your Apple Developer cert)
 

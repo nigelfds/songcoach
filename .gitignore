@@ -30,3 +30,4 @@ native/syscap
 # Test artifacts
 .playwright-mcp/
 *.png
+vendor/

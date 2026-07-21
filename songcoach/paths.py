@@ -15,6 +15,7 @@ running in.
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -73,3 +74,25 @@ def ensure_dirs() -> None:
     """Create the writable data + DB locations before anything touches them."""
     data_dir().mkdir(parents=True, exist_ok=True)
     db_file().parent.mkdir(parents=True, exist_ok=True)
+
+
+def setup_runtime() -> None:
+    """One-time process setup for the frozen app (no-op in dev).
+
+    - Put bundled helper binaries (ffmpeg/ffprobe/syscap) on PATH so subprocesses
+      — including Demucs' own AudioFile ffmpeg call — resolve them.
+    - Point torch's model cache at a writable Application Support dir, seeded from
+      the weights bundled in the app, so separation works offline on first run.
+    """
+    if not is_frozen():
+        return
+    res = resource_dir()
+    os.environ["PATH"] = str(res) + os.pathsep + os.environ.get("PATH", "")
+
+    torch_home = app_data_root() / "torch"
+    os.environ.setdefault("TORCH_HOME", str(torch_home))
+    bundled_weights = res / "torch"
+    if bundled_weights.is_dir() and not torch_home.exists():
+        import shutil
+        torch_home.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(bundled_weights, torch_home)

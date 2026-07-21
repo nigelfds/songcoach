@@ -15,6 +15,9 @@ from .routes import api, pages
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("songcoach")
 
+# Put bundled binaries on PATH + point torch at bundled weights (frozen only).
+paths.setup_runtime()
+
 BASE_DIR = Path(__file__).resolve().parent
 
 
