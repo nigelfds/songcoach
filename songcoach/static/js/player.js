@@ -92,6 +92,11 @@ let ready = 0;
 let loop = { enabled: false, start: null, end: null };
 let syncing = false;      // guard while we programmatically move the playheads / regions
 
+// All stems mix through ONE Web Audio graph. WebKit/WKWebView won't play several
+// <audio> elements at once and ignores their `.volume`, so each stem's element is
+// tapped into this context and its level set with a GainNode instead.
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
 const curEl = document.getElementById("cur");
 const durEl = document.getElementById("dur");
 const playBtn = document.getElementById("play");
@@ -183,6 +188,19 @@ function initPlayer(job) {
     ws.on("decode", () => {
       const loading = waveEl.querySelector(".wave__loading");
       if (loading) loading.remove();
+      // Route this stem through the shared AudioContext: its <audio> output feeds
+      // a GainNode we control (WebKit ignores media.volume and won't play multiple
+      // <audio> elements at once — the graph mixes them into one output instead).
+      if (!c.gain) {
+        try {
+          const source = audioCtx.createMediaElementSource(ws.getMediaElement());
+          c.gain = audioCtx.createGain();
+          c.gain.gain.value = 0;      // applyGains() sets the real level once ready
+          source.connect(c.gain).connect(audioCtx.destination);
+        } catch (e) {
+          console.warn("Web Audio routing failed for", meta.kind, e);
+        }
+      }
       // the leader (FULL SONG) hosts the deck's single shared timeline; register it
       // now that the duration is known so tick density fits the track length.
       if (isRef) {
@@ -260,17 +278,14 @@ function onAllReady() {
 // ---------------------------------------------------------------------------
 // 3. Gain routing — drums + no_drums are the mixer; original is the REF full mix
 // ---------------------------------------------------------------------------
+function gainFor(c) {
+  if (refOn) return c.isRef ? 1 : 0;   // reference: only the untouched full mix
+  if (c.isRef) return 0;               // mixing stems: REF stays silent
+  return c.active ? c.volume : 0;
+}
+
 function applyGains() {
-  if (refOn) {
-    // Reference: hear only the untouched full mix, duck the stems.
-    channels.forEach((c) => c.ws.setVolume(c.isRef ? 1 : 0));
-  } else {
-    // Mix the stems that are switched into the mix; the REF track stays silent.
-    channels.forEach((c) => {
-      if (c.isRef) { c.ws.setVolume(0); return; }
-      c.ws.setVolume(c.active ? c.volume : 0);
-    });
-  }
+  channels.forEach((c) => { if (c.gain) c.gain.gain.value = gainFor(c); });
   updateStrips();
 }
 
@@ -285,6 +300,7 @@ function toggleRef() {
 function isPlaying() { return !!leader() && leader().ws.isPlaying(); }
 
 function playAll() {
+  if (audioCtx.state === "suspended") audioCtx.resume();   // unlock on the user gesture
   // If a section is set and we're outside it, start from A.
   if (loop.start != null) {
     const t = leader().ws.getCurrentTime();
@@ -365,7 +381,7 @@ function updateStrips() {
   const anyStemActive = channels.some((c) => !c.isRef && c.active);
   channels.forEach((c) => {
     // audible => full-color waveform + channel glow; silent => dimmed.
-    c.el.dataset.audible = String(c.ws.getVolume() > 0.0001);
+    c.el.dataset.audible = String((c.gain ? c.gain.gain.value : 0) > 0.0001);
     if (c.isRef) {
       // REF is irrelevant while you're mixing stems, and vice-versa.
       c.el.dataset.dimmed = String(anyStemActive && !refOn);
