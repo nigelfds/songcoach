@@ -9,7 +9,10 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from . import paths
 
 
 class Settings(BaseSettings):
@@ -19,15 +22,22 @@ class Settings(BaseSettings):
     secret_key: str = "dev-secret"
     debug: bool = True
 
-    # Database (SQLite file next to the project).
-    database_url: str = "sqlite:///./songcoach.db"
+    # Database (SQLite). Dev: ./songcoach.db; frozen: Application Support. Env
+    # (DATABASE_URL) still wins over the default when set.
+    database_url: str = Field(default_factory=paths.database_url)
 
     # Storage: recordings and stems live on the local filesystem, served at /media.
-    local_storage_dir: Path = Path("./data")
+    # Dev: ./data; frozen: ~/Library/Application Support/SongCoach/data.
+    local_storage_dir: Path = Field(default_factory=paths.data_dir)
 
     # Native system-audio capture (macOS ScreenCaptureKit helper).
-    # Path to the compiled `syscap` binary; relative paths resolve from repo root.
+    # Path to the compiled `syscap` binary; relative paths resolve from the
+    # resource dir (repo root in dev, the bundle when frozen).
     syscap_bin: str = "native/syscap"
+
+    # External media tools. Dev: found on PATH; frozen: bundled next to the app.
+    ffmpeg_bin: str = Field(default_factory=paths.ffmpeg_bin)
+    ffprobe_bin: str = Field(default_factory=paths.ffprobe_bin)
 
     # Demucs
     demucs_model: str = "htdemucs"

@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 from .. import fetch_thumbnails, metadata
+from ..config import settings
 from ..db import SessionLocal
 from ..models import Job, JobStatus, Track, TrackKind
 from ..storage import get_storage
@@ -31,7 +32,8 @@ def _set(session, job: Job, *, status=None, progress=None, error=None, **fields)
 
 def _to_mp3(src: Path, dest: Path) -> None:
     subprocess.run(
-        ["ffmpeg", "-y", "-i", str(src), "-codec:a", "libmp3lame", "-b:a", "256k", str(dest)],
+        [settings.ffmpeg_bin, "-y", "-i", str(src), "-codec:a", "libmp3lame",
+         "-b:a", "256k", str(dest)],
         check=True,
         capture_output=True,
         text=True,

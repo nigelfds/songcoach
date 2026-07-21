@@ -13,3 +13,7 @@ sqlalchemy==2.0.36
 demucs==4.0.1                # pulls in torch, torchaudio
 
 python-dotenv==1.0.1
+
+# --- Desktop packaging (macOS .app) ---
+pywebview==5.3.2             # native WKWebView window for the bundled app
+pyinstaller==6.11.1          # freezes the app into a .app bundle

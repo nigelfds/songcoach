@@ -7,11 +7,13 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from . import paths
 from .config import settings
-from .db import init_db
+from .rebuild import rebuild
 from .routes import api, pages
 
 logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("songcoach")
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -33,8 +35,12 @@ class NoCacheStaticFiles(StaticFiles):
 
 app = FastAPI(title="SongCoach", debug=settings.debug)
 
-# Create tables on boot (dev convenience; Heroku uses the release phase too).
-init_db()
+# The stem folders + their meta.json sidecars are the source of truth; the
+# SQLite database is a disposable index. Rebuild it from disk on every launch so
+# a shipped/updated app starts from an empty cache and reindexes whatever data is
+# actually present (and schema changes are a free drop-and-recreate).
+paths.ensure_dirs()
+log.info("Rebuilt cache: %d recording(s) from %s", rebuild(), settings.local_storage_dir)
 
 app.include_router(api.router)
 app.include_router(pages.router)

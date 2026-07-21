@@ -19,12 +19,10 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from .. import paths
 from ..config import settings
 
 log = logging.getLogger("songcoach.recorder")
-
-# recorder.py → pipeline → songcoach → repo root
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 class RecorderError(RuntimeError):
@@ -45,7 +43,7 @@ def capture_dir(job_id: str) -> Path:
 def _resolve_binary() -> Path:
     binary = Path(settings.syscap_bin)
     if not binary.is_absolute():
-        binary = _PROJECT_ROOT / binary
+        binary = paths.resource_dir() / binary
     if not binary.exists():
         raise RecorderError(
             f"syscap binary not found at {binary}. Build it with: "
@@ -58,7 +56,7 @@ def _probe_duration(path: Path) -> float | None:
     """Read the container's exact duration; fall back to None if ffprobe fails."""
     try:
         out = subprocess.run(
-            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+            [settings.ffprobe_bin, "-v", "error", "-show_entries", "format=duration",
              "-of", "default=nw=1:nk=1", str(path)],
             check=True, capture_output=True, text=True,
         )
