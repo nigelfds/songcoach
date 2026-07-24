@@ -199,6 +199,14 @@ Legend: ✅ done · 🚧 in progress · ⬜ not started
 - ⬜ Delete/cleanup recordings from the library
 - ⬜ Metronome / count-in overlay
 - ⬜ Tests (pipeline, recorder, API)
+- ⬜ Resume: handle a YouTube job that hard-crashes *mid-stem*. The thumbnail
+  fetch writes `jobs/{id}/meta.json` early with a non-terminal status
+  (`queued`/`separating`), so on rebuild it resurrects as a stuck job with no
+  Retry button, even though `recordings/{id}/capture.m4a` still exists. (Failed
+  jobs and non-YouTube captures are already covered by the resume feature.)
+  Fix idea: in `rebuild()`, treat a job that has a non-terminal status + no
+  stem mp3s + a lingering capture as resumable (surface it as `failed` with a
+  Retry button).
 
 ---
 
