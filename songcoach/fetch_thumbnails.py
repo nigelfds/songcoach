@@ -52,6 +52,49 @@ def fetch_thumbnail(vid: str) -> bytes | None:
     return None
 
 
+_MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB cap for user-supplied thumbnails
+
+
+def _download_image(url: str, max_bytes: int = _MAX_IMAGE_BYTES) -> bytes | None:
+    """Download a user-supplied image URL, bounded by content-type + size."""
+    req = Request(url, headers={"User-Agent": "SongCoach/1.0"})
+    try:
+        with urlopen(req, timeout=15) as resp:
+            if resp.status != 200:
+                return None
+            ctype = resp.headers.get_content_type()
+            if not ctype.startswith("image/"):
+                log.warning("Not an image (%s): %s", ctype, url)
+                return None
+            data = resp.read(max_bytes + 1)
+            if len(data) > max_bytes:
+                log.warning("Image too large (> %d bytes): %s", max_bytes, url)
+                return None
+            return data
+    except (HTTPError, URLError, TimeoutError, ValueError):
+        return None
+
+
+def store_image_from_url(job_id: str, image_url: str) -> None:
+    """Fetch an image URL and store it as the job's thumbnail (best-effort).
+
+    Writes only the image file — not the sidecar; the job is still ``recording``
+    here, and ``meta.json`` gets written later (process success / _fail), with
+    ``to_dict`` picking up the thumbnail when the file exists.
+    """
+    data = _download_image(image_url)
+    if not data:
+        return
+    dest = thumbnail_path(job_id)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(data)
+    log.info("Stored thumbnail for %s from %s (%d KB)", job_id, image_url, len(data) // 1024)
+
+
+def store_image_from_url_async(job_id: str, image_url: str) -> None:
+    threading.Thread(target=store_image_from_url, args=(job_id, image_url), daemon=True).start()
+
+
 def _note_in_meta(dir_: Path, filename: str) -> None:
     meta = dir_ / META_FILENAME
     if not meta.exists():
