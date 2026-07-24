@@ -59,6 +59,7 @@ def to_dict(job: Job) -> dict:
         "youtube_url": job.youtube_url,
         "duration_seconds": job.duration_seconds,
         "status": job.status.value,
+        "error": job.error,
         "created_at": _iso(job.created_at),
         "updated_at": _iso(job.updated_at),
         "tracks": [
