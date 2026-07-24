@@ -39,3 +39,6 @@ vendor/
 # PyInstaller
 build/
 dist/
+
+# Local MCP server config (machine-specific node path)
+.mcp.json
