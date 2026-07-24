@@ -6,10 +6,10 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import fetch_thumbnails, metadata, recording, youtube
+from .. import fetch_thumbnails, jobs, metadata, recording, youtube
 from ..db import get_session
 from ..models import Job, JobStatus
-from ..pipeline.recorder import RecorderError
+from ..pipeline.recorder import RecorderError, capture_dir
 from ..storage import get_storage
 
 router = APIRouter(prefix="/api", tags=["api"])
@@ -52,6 +52,7 @@ class JobOut(BaseModel):
     thumbnail_url: str | None
     duration_seconds: float | None
     error: str | None
+    resumable: bool
     tracks: list[TrackOut]
 
 
@@ -66,11 +67,16 @@ def _serialize(job: Job) -> JobOut:
             )
     thumb = metadata.thumbnail_ref(job.id)
     thumbnail_url = f"{storage.url(thumb[0])}?v={thumb[1]}" if thumb else None
+    resumable = (
+        job.status == JobStatus.failed
+        and (capture_dir(job.id) / "capture.m4a").exists()
+    )
     return JobOut(
         id=job.id, status=job.status.value, progress=job.progress,
         title=job.title, artist=job.artist, youtube_url=job.youtube_url,
         thumbnail_url=thumbnail_url,
-        duration_seconds=job.duration_seconds, error=job.error, tracks=tracks,
+        duration_seconds=job.duration_seconds, error=job.error,
+        resumable=resumable, tracks=tracks,
     )
 
 
@@ -160,4 +166,24 @@ def update_job(job_id: str, payload: UpdateJobIn, session: Session = Depends(get
     if job.youtube_url != old_url:
         fetch_thumbnails.refresh_job_thumbnail_async(job_id)
 
+    return _serialize(job)
+
+
+@router.post("/jobs/{job_id}/retry", response_model=JobOut)
+def retry_job(job_id: str, session: Session = Depends(get_session)):
+    """Re-run separation for a failed job whose capture is still on disk."""
+    job = session.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if recording.is_recording():
+        raise HTTPException(status_code=409, detail="Stop the current recording first.")
+    if job.status != JobStatus.failed:
+        raise HTTPException(status_code=409, detail="Only failed recordings can be retried.")
+    if not (capture_dir(job_id) / "capture.m4a").exists():
+        raise HTTPException(status_code=409, detail="This recording is no longer available.")
+    job.status = JobStatus.queued
+    job.progress = 10
+    job.error = None
+    session.commit()
+    jobs.enqueue_processing(job_id)
     return _serialize(job)
