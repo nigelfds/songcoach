@@ -26,11 +26,15 @@ hiddenimports = [
     # uvicorn picks these up dynamically
     "uvicorn.logging", "uvicorn.loops.auto", "uvicorn.protocols.http.auto",
     "uvicorn.protocols.websockets.auto", "uvicorn.lifespan.on",
+    # loaded dynamically by name, so PyInstaller's static analysis misses them
+    "anyio._backends._asyncio",
+    "sqlalchemy.dialects.sqlite",
 ]
 
 # Pull in data + submodules for the pipeline deps (torch itself is covered by
 # PyInstaller's built-in hook). Add more here if a build reports missing modules.
-for pkg in ("demucs", "torchaudio", "julius", "openunmix", "dora", "lameenc", "einops"):
+for pkg in ("demucs", "torchaudio", "julius", "openunmix", "dora", "omegaconf",
+            "treetable", "submitit", "lameenc", "einops"):
     try:
         d, b, h = collect_all(pkg)
         datas += d
