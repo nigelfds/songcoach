@@ -9,7 +9,7 @@
 #
 # Freezing torch/demucs is fiddly: expect to add hiddenimports as PyInstaller
 # reports missing modules on your machine.
-from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 datas = [
     ("songcoach/templates", "songcoach/templates"),
@@ -42,6 +42,14 @@ for pkg in ("demucs", "torchaudio", "julius", "openunmix", "dora", "omegaconf",
         hiddenimports += h
     except Exception as exc:  # noqa: BLE001
         print(f"[SongCoach.spec] collect_all({pkg}) skipped: {exc}")
+
+# numpy 2.x keeps `numpy.core` only as a lazily-imported compat shim that
+# forwards to `numpy._core`. PyInstaller's numpy hook collects `numpy._core`
+# but misses the shim, so unpickling the Demucs checkpoint (pickled under old
+# numpy, referencing `numpy.core.multiarray`) fails in the frozen app with
+# "No module named 'numpy.core.multiarray'". Force both trees in.
+hiddenimports += collect_submodules("numpy.core")
+hiddenimports += collect_submodules("numpy._core")
 
 
 a = Analysis(

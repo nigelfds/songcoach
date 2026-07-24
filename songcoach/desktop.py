@@ -17,7 +17,9 @@ from urllib.request import urlopen
 
 import uvicorn
 
-from .paths import is_frozen
+# Absolute imports: PyInstaller runs this entry script as __main__ (not as a
+# package member), so relative imports would fail in the frozen app.
+from songcoach.paths import is_frozen
 
 
 def _free_port() -> int:
@@ -40,7 +42,7 @@ def _wait_until_up(url: str, timeout: float = 30.0) -> None:
 def main() -> None:
     import webview  # deferred so the module imports without pywebview in dev
 
-    from .main import app
+    from songcoach.main import app
 
     port = _free_port()
     base = f"http://127.0.0.1:{port}"
