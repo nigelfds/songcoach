@@ -71,7 +71,7 @@ coll = COLLECT(exe, a.binaries, a.datas, name="SongCoach")
 app = BUNDLE(
     coll,
     name="SongCoach.app",
-    icon=None,   # TODO: add assets/SongCoach.icns
+    icon="assets/SongCoach.icns",
     bundle_identifier="in.nigel.songcoach",
     info_plist={
         "CFBundleName": "SongCoach",

@@ -31,3 +31,11 @@ native/syscap
 .playwright-mcp/
 *.png
 vendor/
+
+# icon assets (override the *.png rule above)
+!assets/*.png
+!songcoach/static/apple-touch-icon.png
+
+# PyInstaller
+build/
+dist/

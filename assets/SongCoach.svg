@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="amber" gradientUnits="userSpaceOnUse" x1="0" y1="96" x2="0" y2="928">
+      <stop offset="0" stop-color="#ffab52"/>
+      <stop offset="1" stop-color="#e8760a"/>
+    </linearGradient>
+    <linearGradient id="gloss" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".22"/>
+      <stop offset=".55" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- squircle background -->
+  <rect x="96" y="96" width="832" height="832" rx="190" fill="url(#amber)"/>
+
+  <!-- crossed drumsticks, behind the drum head (beads up, butts down) -->
+  <g fill="#fff7ec">
+    <g transform="rotate(45 512 512)">
+      <rect x="490" y="72" width="44" height="880" rx="22"/>
+      <circle cx="512" cy="72" r="31"/>
+    </g>
+    <g transform="rotate(-45 512 512)">
+      <rect x="490" y="72" width="44" height="880" rx="22"/>
+      <circle cx="512" cy="72" r="31"/>
+    </g>
+  </g>
+
+  <!-- amber disk (same gradient => invisible) masks the stick crossing -->
+  <circle cx="512" cy="512" r="322" fill="url(#amber)"/>
+
+  <!-- uniform sheen over the background + sticks -->
+  <rect x="96" y="96" width="832" height="832" rx="190" fill="url(#gloss)"/>
+  <rect x="97.5" y="97.5" width="829" height="829" rx="188.5" fill="none"
+        stroke="#ffffff" stroke-opacity=".18" stroke-width="3"/>
+
+  <!-- drum head ring + soundwave (foreground) -->
+  <circle cx="512" cy="512" r="315" fill="none" stroke="#fff7ec" stroke-opacity=".95" stroke-width="22"/>
+  <g fill="#fff7ec">
+    <rect x="308" y="437"   width="48" height="150" rx="24"/>
+    <rect x="398" y="384.5" width="48" height="255" rx="24"/>
+    <rect x="488" y="362"   width="48" height="300" rx="24"/>
+    <rect x="578" y="384.5" width="48" height="255" rx="24"/>
+    <rect x="668" y="437"   width="48" height="150" rx="24"/>
+  </g>
+</svg>
