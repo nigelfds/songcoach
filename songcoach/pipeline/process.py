@@ -115,3 +115,9 @@ def _fail(session, job_id: str, message: str) -> None:
         job.status = JobStatus.failed
         job.error = message
         session.commit()
+        # Persist the failure to the durable sidecar so it survives the startup
+        # rebuild (which re-indexes from jobs/*/meta.json) as a failed, retryable job.
+        try:
+            metadata.write_meta(job)
+        except OSError:
+            log.warning("Could not write failure sidecar for %s", job_id, exc_info=True)
