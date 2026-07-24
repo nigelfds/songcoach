@@ -42,3 +42,6 @@ dist/
 
 # Local MCP server config (machine-specific node path)
 .mcp.json
+
+# macOS release artifacts
+*.dmg
