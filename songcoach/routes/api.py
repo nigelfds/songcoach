@@ -28,6 +28,7 @@ class StartRecordingIn(BaseModel):
     title: str
     artist: str | None = None
     youtube_url: str | None = None
+    image_url: str | None = None
 
 
 class UpdateJobIn(BaseModel):
@@ -93,6 +94,9 @@ def start_recording(payload: StartRecordingIn, session: Session = Depends(get_se
         )
     except RecorderError as exc:
         raise HTTPException(status_code=409, detail=str(exc))
+    image_url = (payload.image_url or "").strip()
+    if image_url:
+        fetch_thumbnails.store_image_from_url_async(job_id, image_url)
     return _serialize(session.get(Job, job_id))
 
 
