@@ -46,7 +46,7 @@ Verified: dev paths resolve exactly as before; startup rebuild reindexes the rea
 > `./songcoach.db`** — each launch drops + recreates it. Stop the `uvicorn` dev
 > server before testing `python -m songcoach.desktop`.
 
-## Phase 1 — freeze to an (unsigned) .app — IN PROGRESS
+## Phase 1 — freeze to an (unsigned) .app — DONE (2026-07-24)
 
 **Done (code):**
 - **Demucs runs in-process** — `separator.py` no longer shells out to
@@ -74,20 +74,70 @@ launch — which *is* the "ship empty, rebuild on startup" requirement.
 is fiddly — expect to add `hiddenimports` to the spec as PyInstaller reports
 missing modules on your machine.
 
-**Then:** validate capture → separation → playback entirely from the `.app`
-(the in-process separator is derived from the CLI source but hasn't yet been run
-on real audio end-to-end — do this here).
+**Verified end-to-end (2026-07-24):** captured a YouTube video from the built
+`.app`, separated it in-process, and played the stems back — the full
+capture → Demucs → playback path works from the frozen bundle. (Also fixed a
+frozen-only unpickle crash: `SongCoach.spec` now collects `numpy.core`/`numpy._core`
+submodules.)
 
-## Phase 2 — sign, notarize, DMG — TODO (needs your Apple Developer cert)
+## Phase 2 — sign, notarize, DMG — runbook
 
-- Developer ID Application signing of the `.app` **and every nested binary**
-  (`syscap`, `ffmpeg`, `ffprobe`, torch's many `.dylib`s/`.so`s) with the
-  **hardened runtime**.
-- Entitlements + `Info.plist` usage strings as required for ScreenCaptureKit.
-- `notarytool submit --wait` → `stapler staple`.
-- Package a `.dmg` (e.g. `create-dmg`).
-- Without notarization, Gatekeeper blocks the app and the screen-recording
-  permission is unreliable.
+Goal: a Developer ID–signed, notarized, stapled `.dmg` others can download and
+double-click. Without notarization Gatekeeper blocks the app and the
+screen-recording permission is unreliable.
+
+### One-time prerequisites (your Apple account)
+
+1. **Developer ID Application certificate** — Xcode → Settings → Accounts → your
+   Apple ID → Manage Certificates → **+** → *Developer ID Application*. Confirm:
+   ```
+   security find-identity -v -p codesigning     # → "Developer ID Application: … (TEAMID)"
+   ```
+2. **Notary credentials** — create an app-specific password at appleid.apple.com,
+   then store it once as a keychain profile:
+   ```
+   xcrun notarytool store-credentials songcoach-notary \
+     --apple-id <you@example.com> --team-id <TEAMID> --password <app-specific-pw>
+   ```
+3. `brew install create-dmg`.
+
+### Build → ship
+
+```
+scripts/release_macapp.sh          # build → sign → dmg → notarize + staple
+```
+
+Or run the stages individually:
+
+| Script | Does |
+|--------|------|
+| `scripts/build_macapp.sh`    | PyInstaller → `dist/SongCoach.app` (unsigned) |
+| `scripts/sign_macapp.sh`     | signs every nested mach-O inside-out, then the `.app` with `packaging/entitlements.plist` (hardened runtime) |
+| `scripts/make_dmg.sh`        | `create-dmg` → `dist/SongCoach.dmg`, then signs the DMG |
+| `scripts/notarize_macapp.sh` | `notarytool submit --wait` → `stapler staple` → `spctl` check |
+
+Signing identity auto-detects the sole *Developer ID Application* cert, or set
+`DEVID="Developer ID Application: … (TEAMID)"`. Notary profile defaults to
+`songcoach-notary` (override with `NOTARY_PROFILE`).
+
+### Entitlements (`packaging/entitlements.plist`)
+
+Hardened runtime + `allow-jit`, `allow-unsigned-executable-memory`,
+`disable-library-validation` — CPython/PyInstaller and torch's ~130 unsigned
+`.dylib`/`.so` need these. If notarization fails, read the real reason:
+
+```
+xcrun notarytool log <submission-id> --keychain-profile songcoach-notary
+```
+
+The usual follow-up is adding `com.apple.security.cs.allow-dyld-environment-variables`,
+then re-sign and resubmit.
+
+### Acceptance test
+
+Download `dist/SongCoach.dmg` on a **second Mac** (or a fresh user account),
+double-click → drag to Applications → open. It must launch with no Gatekeeper
+block, and **Screen & System Audio Recording** capture must work.
 
 ## Phase 3 — later
 
