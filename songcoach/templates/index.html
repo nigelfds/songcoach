@@ -14,10 +14,8 @@
 
     <!-- VIEW 0 — pick an input channel -->
     <div id="mode-picker" class="mode-picker">
-      <span class="tape__label">Patch an input</span>
       <div class="mode-grid">
         <button type="button" class="mode-card" data-mode="youtube">
-          <span class="mode-card__ch">CH-01 · YouTube</span>
           <span class="mode-card__screen">
             <svg viewBox="0 0 48 34" class="glyph glyph--screen" aria-hidden="true">
               <rect x="1.5" y="1.5" width="45" height="31" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
@@ -29,7 +27,6 @@
         </button>
 
         <button type="button" class="mode-card" data-mode="system">
-          <span class="mode-card__ch">CH-02 · System audio</span>
           <span class="mode-card__screen">
             <span class="sys-collage sys-collage--card" aria-hidden="true">
               <svg viewBox="0 0 24 24" class="glyph"><path d="M9 17V6.2l9-2V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.6" cy="17" r="2.4" fill="currentColor"/><circle cx="15.6" cy="15" r="2.4" fill="currentColor"/></svg>
@@ -61,7 +58,7 @@
         <div id="yt-embed" class="yt-embed" hidden>
           <div id="yt-iframe"></div>
         </div>
-        <p class="tape__hint">Press play above, then <b>START CAPTURE</b> and let the part play through. Capture stops itself when the video ends.</p>
+        <p class="tape__hint">Load a link above, then hit <b>START CAPTURE</b> — we'll play the video and record it, stopping automatically when it ends.</p>
       </div>
 
       <!-- System-audio chrome -->

@@ -107,11 +107,6 @@ a { color: inherit; }
 .mode-card:active { transform: translateY(0); }
 .mode-card:focus-visible { outline: none; border-color: var(--amber);
   box-shadow: 0 0 0 3px rgba(255,158,64,.22), 0 1px 0 rgba(255,255,255,.7) inset; }
-.mode-card__ch {
-  font-family: var(--font-mono); font-size: .6rem; letter-spacing: .2em;
-  text-transform: uppercase; color: var(--ink-faint); transition: color .18s;
-}
-.mode-card:hover .mode-card__ch, .mode-card:focus-visible .mode-card__ch { color: var(--amber); }
 .mode-card__screen {
   width: 100%; height: 66px; display: grid; place-items: center;
   background: var(--bg); border: 1px solid var(--line-soft); border-radius: 9px;
@@ -120,8 +115,11 @@ a { color: inherit; }
 .mode-card:hover .mode-card__screen { color: var(--ink); }
 .glyph { display: block; }
 .glyph--screen { width: 42px; height: 30px; }
-.mode-card__title { font-family: var(--font-display); font-weight: 800; font-size: 1.02rem; line-height: 1.1; }
-.mode-card__sub { font-family: var(--font-mono); font-size: .64rem; letter-spacing: .04em; color: var(--ink-dim); }
+.mode-card__title { font-family: var(--font-display); font-weight: 800; font-size: 1.18rem; line-height: 1.12; }
+.mode-card__sub { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .04em; color: var(--ink-dim); line-height: 1.35; }
+
+/* separate the per-mode chrome (loader/embed or explainer) from the shared metadata */
+#yt-chrome, #sys-chrome { margin-bottom: 1.4rem; }
 
 /* grayscale source collage — reused on the CH-02 card face and in system chrome */
 .sys-collage { display: inline-flex; align-items: center; gap: .5rem; color: var(--ink-dim); }
