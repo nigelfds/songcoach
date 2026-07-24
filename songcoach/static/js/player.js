@@ -52,7 +52,7 @@ async function poll() {
       return;
     }
     if (job.status === "failed") {
-      showError(job.error || "Processing failed.");
+      showError(job);
       return;
     }
   } catch (e) {
@@ -69,14 +69,37 @@ function updateProcessing(job) {
   }
 }
 
-function showError(msg) {
+function showError(job) {
   const el = document.getElementById("processing-error");
-  el.textContent = msg;
+  el.textContent = job.error || "Processing failed.";
   el.hidden = false;
   document.getElementById("stage-tag").textContent = "FAILED";
   document.getElementById("processing-hint").hidden = true;
   document.getElementById("meter-fill").style.background = "var(--red)";
+  document.getElementById("retry-btn").hidden = !job.resumable;
 }
+
+document.getElementById("retry-btn").addEventListener("click", async () => {
+  const retry = document.getElementById("retry-btn");
+  retry.disabled = true;
+  try {
+    const res = await fetch(`/api/jobs/${jobId}/retry`, { method: "POST" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.detail || "Couldn't retry.");
+    }
+    // Reset the processing UI and resume polling from queued.
+    document.getElementById("processing-error").hidden = true;
+    document.getElementById("processing-hint").hidden = false;
+    document.getElementById("meter-fill").style.background = "";
+    retry.hidden = true;
+    retry.disabled = false;
+    poll();
+  } catch (err) {
+    document.getElementById("processing-error").textContent = err.message;
+    retry.disabled = false;
+  }
+});
 
 // ---------------------------------------------------------------------------
 // 2. Build the player
