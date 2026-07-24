@@ -71,6 +71,29 @@ def _job_from_meta(data: dict, job_dir: Path) -> Job | None:
     return job
 
 
+def _index_orphan_captures(session, indexed_ids: set[str]) -> int:
+    """Index captures in recordings/ that have no jobs/ entry as resumable failed jobs."""
+    rec_root = Path(settings.local_storage_dir) / "recordings"
+    if not rec_root.is_dir():
+        return 0
+    count = 0
+    for capture in sorted(rec_root.glob("*/capture.m4a")):
+        job_id = capture.parent.name
+        if job_id in indexed_ids:
+            continue
+        mtime = datetime.fromtimestamp(capture.stat().st_mtime)
+        session.merge(Job(
+            id=job_id,
+            title=f"Untitled recording {mtime:%b %-d, %-I:%M %p}",
+            status=JobStatus.failed,
+            progress=0,
+            error="Stemming didn't finish — retry to resume.",
+            created_at=mtime,
+        ))
+        count += 1
+    return count
+
+
 def rebuild(*, reset: bool = True) -> int:
     """Recreate DB rows from disk. Returns the number of jobs loaded."""
     if reset:
@@ -80,12 +103,12 @@ def rebuild(*, reset: bool = True) -> int:
 
     jobs_root = Path(settings.local_storage_dir) / "jobs"
     if not jobs_root.is_dir():
-        log.warning("No jobs directory at %s; nothing to rebuild", jobs_root)
-        return 0
+        log.warning("No jobs directory at %s; scanning for orphan captures only", jobs_root)
 
     session = SessionLocal()
     count = 0
     try:
+        indexed_ids: set[str] = set()
         for meta_file in sorted(jobs_root.glob(f"*/{META_FILENAME}")):
             try:
                 data = read_meta(meta_file)
@@ -97,7 +120,9 @@ def rebuild(*, reset: bool = True) -> int:
                 continue
             # merge() upserts by primary key so --merge can run repeatedly.
             session.merge(job)
+            indexed_ids.add(job.id)
             count += 1
+        count += _index_orphan_captures(session, indexed_ids)
         session.commit()
     finally:
         session.close()
