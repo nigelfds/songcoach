@@ -13,6 +13,40 @@ const ytStatus = document.getElementById("yt-status");
 const ytEmbed = document.getElementById("yt-embed");
 const metaInputs = [song, artist, yturl];
 
+// ---------------------------------------------------------------------------
+// Landing mode: pick an input channel, then reveal the capture flow
+// ---------------------------------------------------------------------------
+let mode = null;                        // null (picker) | "youtube" | "system"
+const modePicker = document.getElementById("mode-picker");
+const flow = document.getElementById("flow");
+const ytChrome = document.getElementById("yt-chrome");
+const sysChrome = document.getElementById("sys-chrome");
+const imageUrlField = document.getElementById("image-url-field");
+const imageUrl = document.getElementById("image-url");
+const backBtn = document.getElementById("back-btn");
+
+function selectMode(m) {
+  mode = m;
+  modePicker.hidden = true;
+  flow.hidden = false;
+  ytChrome.hidden = m !== "youtube";
+  sysChrome.hidden = m !== "system";
+  imageUrlField.hidden = m !== "system";
+  (m === "youtube" ? yturl : song).focus();
+}
+
+function goBack() {
+  if (recording) return;                // Back is disabled mid-capture
+  mode = null;
+  flow.hidden = true;
+  modePicker.hidden = false;
+}
+
+document.querySelectorAll(".mode-card").forEach((card) => {
+  card.addEventListener("click", () => selectMode(card.dataset.mode));
+});
+backBtn.addEventListener("click", goBack);
+
 const TAIL_MS = 400;      // keep capturing briefly after the video ends
 
 let recording = false;
@@ -36,7 +70,9 @@ function setState(rec) {
   stateEl.textContent = rec ? "Recording…" : "Ready to capture";
   timerEl.hidden = !rec;
   metaInputs.forEach((el) => { el.disabled = rec; });
+  imageUrl.disabled = rec;
   ytLoadBtn.disabled = rec;
+  backBtn.disabled = rec;               // can't switch inputs mid-capture
 }
 
 // ---------------------------------------------------------------------------
@@ -156,14 +192,16 @@ async function begin() {
     song.focus();
     throw new Error("Enter a song name first.");
   }
+  const body = { title, artist: artist.value.trim() };
+  if (mode === "youtube") {
+    body.youtube_url = yturl.value.trim();
+  } else if (imageUrl.value.trim()) {
+    body.image_url = imageUrl.value.trim();
+  }
   const res = await fetch("/api/recordings/start", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      title,
-      artist: artist.value.trim(),
-      youtube_url: yturl.value.trim(),
-    }),
+    body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.detail || "Couldn't start capture.");
@@ -226,6 +264,7 @@ btn.addEventListener("click", () => (recording ? triggerStop() : triggerStart())
     const res = await fetch("/api/recordings/status");
     const { recording: active } = await res.json();
     if (active) {
+      selectMode("system"); // reveal the flow so Stop is reachable after a reload
       setState(true);
       startTimer(); // elapsed restarts from 0; the server keeps the real clock
     }

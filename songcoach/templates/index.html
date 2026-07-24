@@ -12,29 +12,80 @@
       <p class="brand__tag">Isolate the kit. Loop the fill. Lock in the groove.</p>
     </header>
 
-    <div class="tape">
-      <span class="tape__label">New recording</span>
+    <!-- VIEW 0 — pick an input channel -->
+    <div id="mode-picker" class="mode-picker">
+      <span class="tape__label">Patch an input</span>
+      <div class="mode-grid">
+        <button type="button" class="mode-card" data-mode="youtube">
+          <span class="mode-card__ch">CH-01 · YouTube</span>
+          <span class="mode-card__screen">
+            <svg viewBox="0 0 48 34" class="glyph glyph--screen" aria-hidden="true">
+              <rect x="1.5" y="1.5" width="45" height="31" rx="7" fill="none" stroke="currentColor" stroke-width="2"/>
+              <path d="M20 10.5l11 6.5-11 6.5z" fill="currentColor"/>
+            </svg>
+          </span>
+          <span class="mode-card__title">Record from YouTube</span>
+          <span class="mode-card__sub">Paste a link · plays in-app · auto-stop</span>
+        </button>
 
-      <!-- 1. Paste a link; we pull the title/artist and load the video -->
-      <div class="yt-load">
-        <input id="yturl" class="meta__in" type="url" inputmode="url" autocomplete="off"
-               spellcheck="false" placeholder="Paste a YouTube link" />
-        <button id="yt-load-btn" type="button" class="chip">LOAD</button>
+        <button type="button" class="mode-card" data-mode="system">
+          <span class="mode-card__ch">CH-02 · System audio</span>
+          <span class="mode-card__screen">
+            <span class="sys-collage sys-collage--card" aria-hidden="true">
+              <svg viewBox="0 0 24 24" class="glyph"><path d="M9 17V6.2l9-2V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.6" cy="17" r="2.4" fill="currentColor"/><circle cx="15.6" cy="15" r="2.4" fill="currentColor"/></svg>
+              <svg viewBox="0 0 24 24" class="glyph"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 10.2c4-1 8-.5 10.6 1M7.6 13.4c3-.7 5.8-.3 8.2 1M8.2 16.4c2-.4 4-.1 5.6.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+              <svg viewBox="0 0 30 20" class="glyph"><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="16" x2="4" y2="11"/><line x1="8" y1="16" x2="8" y2="7"/><line x1="12" y1="16" x2="12" y2="4"/><line x1="16" y1="16" x2="16" y2="9"/></g><path d="M19 16a4 4 0 000-8 5.5 5.5 0 00-3-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <svg viewBox="0 0 26 24" class="glyph"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M17 9.5a4 4 0 010 5M19.5 7.5a7 7 0 010 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </span>
+          </span>
+          <span class="mode-card__title">Record from system audio</span>
+          <span class="mode-card__sub">Any app · manual start &amp; stop</span>
+        </button>
       </div>
-      <p id="yt-status" class="yt-status" role="status" hidden></p>
+    </div>
 
-      <!-- 2. Embedded player so you can play the song and capture it. The
-           YouTube IFrame API replaces this div with the player iframe. -->
-      <div id="yt-embed" class="yt-embed" hidden>
-        <div id="yt-iframe"></div>
+    <!-- VIEWS 1 & 2 — the capture flow for the chosen channel -->
+    <div id="flow" class="tape" hidden>
+      <button id="back-btn" type="button" class="chip chip--ghost mode-back">‹ Inputs</button>
+
+      <!-- YouTube chrome -->
+      <div id="yt-chrome">
+        <span class="tape__label">Record from YouTube</span>
+        <div class="yt-load">
+          <input id="yturl" class="meta__in" type="url" inputmode="url" autocomplete="off"
+                 spellcheck="false" placeholder="Paste a YouTube link" />
+          <button id="yt-load-btn" type="button" class="chip">LOAD</button>
+        </div>
+        <p id="yt-status" class="yt-status" role="status" hidden></p>
+        <!-- The YouTube IFrame API replaces #yt-iframe with the player. -->
+        <div id="yt-embed" class="yt-embed" hidden>
+          <div id="yt-iframe"></div>
+        </div>
+        <p class="tape__hint">Press play above, then <b>START CAPTURE</b> and let the part play through. Capture stops itself when the video ends.</p>
       </div>
 
-      <!-- 3. Details (auto-filled from the link, editable) -->
+      <!-- System-audio chrome -->
+      <div id="sys-chrome" hidden>
+        <span class="tape__label">Record from system audio</span>
+        <span class="sys-collage" aria-hidden="true">
+          <svg viewBox="0 0 24 24" class="glyph"><path d="M9 17V6.2l9-2V13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="6.6" cy="17" r="2.4" fill="currentColor"/><circle cx="15.6" cy="15" r="2.4" fill="currentColor"/></svg>
+          <svg viewBox="0 0 24 24" class="glyph"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 10.2c4-1 8-.5 10.6 1M7.6 13.4c3-.7 5.8-.3 8.2 1M8.2 16.4c2-.4 4-.1 5.6.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 30 20" class="glyph"><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="16" x2="4" y2="11"/><line x1="8" y1="16" x2="8" y2="7"/><line x1="12" y1="16" x2="12" y2="4"/><line x1="16" y1="16" x2="16" y2="9"/></g><path d="M19 16a4 4 0 000-8 5.5 5.5 0 00-3-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <svg viewBox="0 0 26 24" class="glyph"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M17 9.5a4 4 0 010 5M19.5 7.5a7 7 0 010 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </span>
+        <p class="tape__hint">Capture anything playing on your Mac — Apple Music, Spotify, SoundCloud, a file. You start and stop the capture yourself. <b>Start the capture before the audio begins</b>, then stop it when the song ends.</p>
+      </div>
+
+      <!-- Shared details -->
       <div class="meta">
         <input id="song" class="meta__in" type="text" maxlength="120" autocomplete="off"
                spellcheck="false" placeholder="Song name" required />
         <input id="artist" class="meta__in" type="text" maxlength="120" autocomplete="off"
                spellcheck="false" placeholder="Artist (optional)" />
+        <div id="image-url-field" hidden>
+          <input id="image-url" class="meta__in" type="url" inputmode="url" autocomplete="off"
+                 spellcheck="false" placeholder="Cover image URL for the tile (optional)" />
+        </div>
       </div>
 
       <div class="tape__status">
@@ -47,7 +98,6 @@
         <span class="btn-rec__label">START CAPTURE</span>
       </button>
       <p class="jack__error" id="form-error" role="alert"></p>
-      <p class="tape__hint">Press play above, then <b>START CAPTURE</b> and let the part play through — or capture any other audio on your Mac (Spotify, a file). Stop to separate it.</p>
     </div>
   </div>
 

@@ -88,6 +88,56 @@ a { color: inherit; }
 .brand__mark span { color: var(--amber); }
 .brand__tag { color: var(--ink-dim); margin: .2rem 0 0; font-size: 1.02rem; }
 
+/* ---- mode picker: patch in an input channel ---- */
+.mode-picker { margin-top: 2rem; }
+.mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .8rem; margin-top: .7rem; }
+@media (max-width: 460px) { .mode-grid { grid-template-columns: 1fr; } }
+
+.mode-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: .5rem;
+  text-align: left; cursor: pointer;
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line); border-radius: 12px;
+  padding: 1.1rem 1.15rem 1.2rem;
+  box-shadow: 0 1px 0 rgba(255,255,255,.7) inset;
+  transition: border-color .18s, transform .12s, box-shadow .2s;
+}
+.mode-card:hover { border-color: var(--amber); transform: translateY(-2px);
+  box-shadow: 0 14px 30px -18px rgba(232,118,10,.5), 0 1px 0 rgba(255,255,255,.7) inset; }
+.mode-card:active { transform: translateY(0); }
+.mode-card:focus-visible { outline: none; border-color: var(--amber);
+  box-shadow: 0 0 0 3px rgba(255,158,64,.22), 0 1px 0 rgba(255,255,255,.7) inset; }
+.mode-card__ch {
+  font-family: var(--font-mono); font-size: .6rem; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--ink-faint); transition: color .18s;
+}
+.mode-card:hover .mode-card__ch, .mode-card:focus-visible .mode-card__ch { color: var(--amber); }
+.mode-card__screen {
+  width: 100%; height: 66px; display: grid; place-items: center;
+  background: var(--bg); border: 1px solid var(--line-soft); border-radius: 9px;
+  color: var(--ink-dim); margin: .1rem 0 .15rem; transition: color .18s;
+}
+.mode-card:hover .mode-card__screen { color: var(--ink); }
+.glyph { display: block; }
+.glyph--screen { width: 42px; height: 30px; }
+.mode-card__title { font-family: var(--font-display); font-weight: 800; font-size: 1.02rem; line-height: 1.1; }
+.mode-card__sub { font-family: var(--font-mono); font-size: .64rem; letter-spacing: .04em; color: var(--ink-dim); }
+
+/* grayscale source collage — reused on the CH-02 card face and in system chrome */
+.sys-collage { display: inline-flex; align-items: center; gap: .5rem; color: var(--ink-dim); }
+.sys-collage .glyph { width: 26px; height: 22px; }
+.sys-collage--card { gap: .4rem; }
+.sys-collage--card .glyph { width: 23px; height: 19px; }
+#sys-chrome .sys-collage { margin: .3rem 0 .1rem; gap: .85rem; }
+#sys-chrome .sys-collage .glyph { width: 28px; height: 24px; }
+
+.mode-back { margin-bottom: 1rem; }
+#image-url-field { display: contents; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-card, .mode-card:hover { transform: none; }
+}
+
 /* system-audio tap */
 .tape { margin-top: 2rem; }
 .tape__label {
