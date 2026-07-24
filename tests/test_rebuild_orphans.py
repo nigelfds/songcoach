@@ -38,3 +38,21 @@ def test_rebuild_does_not_duplicate_published_id(storage_dir):
         assert rows[0].status == JobStatus.done
     finally:
         s.close()
+
+
+def test_orphan_scan_does_not_clobber_existing_row(storage_dir):
+    # A pre-existing DB row with a lingering capture must survive a merge-mode rebuild.
+    rebuild(reset=True)
+    s = SessionLocal()
+    s.add(Job(id="dup1", title="Real", status=JobStatus.done))
+    s.commit()
+    s.close()
+    _capture(storage_dir, "dup1")
+    rebuild(reset=False)  # merge mode: orphan scan must not overwrite the done row
+    s = SessionLocal()
+    try:
+        job = s.get(Job, "dup1")
+        assert job.status == JobStatus.done
+        assert job.title == "Real"
+    finally:
+        s.close()

@@ -79,9 +79,9 @@ def _index_orphan_captures(session, indexed_ids: set[str]) -> int:
     count = 0
     for capture in sorted(rec_root.glob("*/capture.m4a")):
         job_id = capture.parent.name
-        if job_id in indexed_ids:
+        if job_id in indexed_ids or session.get(Job, job_id) is not None:
             continue
-        mtime = datetime.fromtimestamp(capture.stat().st_mtime)
+        mtime = datetime.fromtimestamp(capture.stat().st_mtime).astimezone()
         session.merge(Job(
             id=job_id,
             title=f"Untitled recording {mtime:%b %-d, %-I:%M %p}",
@@ -127,7 +127,7 @@ def rebuild(*, reset: bool = True) -> int:
     finally:
         session.close()
 
-    log.info("Rebuilt %d job(s) from %s", count, jobs_root)
+    log.info("Rebuilt %d job(s) from %s", count, Path(settings.local_storage_dir))
     return count
 
 
