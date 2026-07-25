@@ -1,80 +1,112 @@
 # SongCoach 🥁
 
-A local practice tool for drum students, for macOS. Give a recording a name,
-tap **capture**, and play the song through your Mac (a YouTube tab, Spotify, a
-file — anything). SongCoach records the system audio, uses an AI
-source-separation model (Demucs) to split it into **the full song**, **drums
-only**, and **the song without drums**, then gives you a player with three
-synced waveforms, region selection, and looping so you can drill any part of a
-song.
+**Isolate the drums. Loop the fill. Lock in the groove.**
 
-It runs entirely on your machine — no accounts, no cloud, no downloads.
+SongCoach is a local macOS app for drummers. Play any song through your Mac — a
+YouTube tab, Spotify, Apple Music, a file — and SongCoach captures the audio and
+uses an AI source-separation model ([Demucs](https://github.com/adefossez/demucs))
+to split it into three stems:
 
----
+- **the full song**,
+- **drums only** — hear exactly what the drummer played, and
+- **the song without drums** — play along as if you're the drummer.
 
-## Why
+Then it hands you a player with three synced waveforms, solo switching, A–B
+looping, and pitch-preserved slow-down, so you can drill any four bars until
+they're yours.
 
-Drummers learn by playing along. Being able to isolate the drums (to hear
-exactly what the drummer played) or mute the drums (to play along as if you're
-the drummer), and to loop a tricky 4 bars over and over, is the core of
-efficient practice. SongCoach automates the tedious part.
-
-Capturing **system audio** — rather than downloading from a URL — means it works
-with whatever you can already play: a logged-in YouTube/Premium tab, a streaming
-service, a local file. No format breakage, no auth dance.
+Everything runs on your machine. No account, no cloud, no upload — your
+recordings never leave your Mac.
 
 ---
 
-## Architecture
+## Download & install
+
+> **macOS 13+ · Apple Silicon (M-series).** Signed & notarized — no right-click
+> "Open" workaround needed.
+
+1. Download the latest **`SongCoach.dmg`** from the
+   [**Releases**](https://github.com/nigelfds/songcoach/releases) page.
+2. Open the DMG and drag **SongCoach** into **Applications**.
+3. Launch it. On first capture, macOS asks for **Screen & System Audio
+   Recording** — grant it in *System Settings → Privacy & Security*, then
+   relaunch SongCoach. (This permission is what lets it hear your system audio;
+   it's granted to SongCoach itself.)
+
+That's it — nothing else to install. Python, ffmpeg, the AI model, and the
+capture helper are all bundled.
+
+Prefer to run from source or build your own `.app`? See
+[**For developers**](#for-developers) below.
+
+---
+
+## Using it
+
+Pick how you want to feed audio in:
+
+**▶ Record from YouTube** — paste a link; SongCoach loads the video in-app. Hit
+**Start Capture** and it plays and records the video for you, stopping
+automatically when it ends.
+
+**♪ Record from system audio** — for anything else (Apple Music, Spotify,
+SoundCloud, a local file). Enter a song name (and, optionally, an artist and a
+cover-image URL), start the capture **before** the audio begins, play it, and
+stop when it's done.
+
+Either way, Demucs runs for a minute or two, then the player opens. In the
+player:
+
+- three synced waveform rows — **full / drums / no-drums** — with **solo** to
+  pick what you hear,
+- **drag on any waveform** to set an **A–B loop**,
+- **0.5×–1×** slow-down that preserves pitch,
+- keyboard shortcuts for play/pause, section in/out, and looping (see the **?**
+  in the app).
+
+Your library lists every recording; click one to reopen its player. If a
+separation ever fails, the recording is kept and you can **retry** it without
+re-recording.
+
+---
+
+## How it works
 
 ```
 Browser (WaveSurfer.js UI)
-        │  1. enter metadata, tap Start        ┌─────────────────────────┐
-        ▼                                       │  native/syscap (Swift)  │
-FastAPI app  ──start/stop capture──►  Recorder ─┤  ScreenCaptureKit tap   │
-        │                                       │  → capture.m4a          │
-        │ poll job status                       └─────────────────────────┘
-        ▼                                              │ on Stop
-   Player page  ◄── /media stem URLs ──┐               ▼
+        │  1. pick a mode, enter details, Start   ┌─────────────────────────┐
+        ▼                                          │  native/syscap (Swift)  │
+FastAPI app  ──start/stop capture──►  Recorder ────┤  ScreenCaptureKit tap   │
+        │                                          │  → capture.m4a          │
+        │ poll job status                          └─────────────────────────┘
+        ▼                                                 │ on Stop
+   Player page  ◄── /media stem URLs ──┐                  ▼
                                        │   background thread: Demucs
                                        └── SQLite + local filesystem (./data)
                                               → drums.mp3 · no_drums.mp3 · original.mp3
 ```
 
-- **Capture**: `native/syscap.swift` — a small Swift **ScreenCaptureKit** helper
-  compiled to `native/syscap`. It taps the Mac's system-audio output to an
-  `.m4a`. No BlackHole / virtual audio device needed. Python drives it as a
-  subprocess (`pipeline/recorder.py`).
-- **Web**: FastAPI + Jinja2 templates, served by Uvicorn. Single-user, so
-  separation runs **inline in a daemon thread** (no queue) and the UI polls job
-  status.
-- **Separation**: **Demucs** (`htdemucs`, `--two-stems=drums --mp3`) splits drums
-  vs. the rest, writing 256 kbps mp3 directly.
-- **Storage**: local filesystem under `./data`, served at `/media/{key}`.
-- **DB**: SQLAlchemy over **SQLite** (`songcoach.db`, WAL mode) for job + track
-  state.
-- **Frontend**: [WaveSurfer.js v7](https://wavesurfer.xyz/) for waveforms + the
+- **Capture** — `native/syscap.swift`, a small **ScreenCaptureKit** helper, taps
+  the Mac's system-audio output to an `.m4a`. No BlackHole / virtual audio device
+  needed.
+- **Separation** — **Demucs** (`htdemucs`, two-stem drums split) writes 256 kbps
+  mp3s, run **in-process** so it works inside the frozen app.
+- **Web** — FastAPI + Jinja2 + Uvicorn. Single-user, so separation runs inline in
+  a daemon thread and the UI polls status.
+- **Storage & DB** — stems live on the local filesystem; **SQLite** is a
+  disposable index rebuilt from disk on launch (see [Data model](#data-model--the-db-is-a-cache)).
+- **Frontend** — [WaveSurfer.js v7](https://wavesurfer.xyz/) waveforms + the
   Regions plugin for select-and-loop.
-- **ffmpeg** — audio muxing/encoding (Demucs dependency; also used to build the
-  full-song mp3).
 
 ---
 
-## Requirements
+## For developers
 
-- **macOS** (system-audio capture uses ScreenCaptureKit; macOS 13+).
-- **Xcode command-line tools** (for `swiftc`) to build the capture helper.
-- **Python 3.11** — Demucs/PyTorch don't support 3.14. (`.python-version` pins
-  3.11.9.)
-- **ffmpeg**.
-
----
-
-## Setup & running
+### Run from source
 
 ```bash
 brew install pyenv ffmpeg
-pyenv install 3.11.9          # Demucs/PyTorch need 3.11, not 3.14
+pyenv install 3.11.9          # Demucs/PyTorch need 3.11
 pyenv local 3.11.9
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -86,154 +118,115 @@ swiftc -O native/syscap.swift -o native/syscap
 uvicorn songcoach.main:app --reload   # → http://localhost:8000
 ```
 
-### Granting the capture permission
+**Capture permission in dev:** the first capture fails until macOS grants
+**Screen & System Audio Recording** to the app hosting the process — in dev
+that's your **terminal** (Terminal / iTerm / VS Code), since it's the
+"responsible process" for `syscap`. Enable it in *System Settings → Privacy &
+Security → Screen & System Audio Recording*, then **fully quit and reopen** that
+app (TCC changes only apply after a restart). The error
+`The user declined TCCs for … display capture` is this permission.
 
-The first capture will fail until macOS is granted **Screen & System Audio
-Recording** permission — it gates system-audio capture:
+### Tests
 
-1. Open **System Settings → Privacy & Security → Screen & System Audio
-   Recording**.
-2. Enable the app hosting the process (your **terminal** — Terminal / iTerm /
-   VS Code — since it's the "responsible process" for `syscap` in dev).
-3. **Fully quit and reopen** that app; TCC changes only take effect after a
-   restart.
+```bash
+python -m pytest        # pipeline sidecars, rebuild/orphan indexing, retry API, thumbnails
+```
 
-If you see `The user declined TCCs for application, window, display capture`,
-that's this permission. (When SongCoach is later packaged as a `.app`, the
-permission attaches to the app itself.)
+### Build a signed `.app` + DMG
 
-### Using it
+The app is packaged with PyInstaller and distributed as a Developer ID–signed,
+notarized `.dmg`. Full runbook — cert setup, signing, notarization, DMG — is in
+[`docs/packaging.md`](docs/packaging.md). In short:
 
-1. On the home page, enter a **song name** (artist and a reference YouTube URL
-   are optional).
-2. Start playing the song through your Mac, then tap **Start Capture**.
-3. Tap **Stop & Separate** when done. Demucs runs (a minute or two); the page
-   shows progress, then loads the player.
-4. The home page lists every recording and its stem files; click one to reopen
-   its player.
+```bash
+scripts/build_macapp.sh      # → dist/SongCoach.app (unsigned)
+scripts/release_macapp.sh    # build → sign → dmg → notarize + staple
+```
 
-In the player: three synced waveform rows (full / drums / no-drums), **solo** to
-choose the audible track, **drag on any waveform** to set an A–B loop, and a
-**0.5×–1×** pitch-preserved slow-down.
+### Configuration
 
----
+Env-driven (`.env`, via pydantic-settings); defaults work out of the box. Notable
+knobs: `DATABASE_URL`, `LOCAL_STORAGE_DIR` (default `./data`), `SYSCAP_BIN`,
+`DEMUCS_MODEL` (default `htdemucs`), `MAX_DURATION_SECONDS` (capture cap, default
+600).
 
-## Configuration
+### Data model — the DB is a cache
 
-Settings are env-driven (`.env`, via pydantic-settings). Defaults work out of the
-box; notable knobs:
-
-- `DATABASE_URL` — default `sqlite:///./songcoach.db`.
-- `LOCAL_STORAGE_DIR` — where recordings/stems live (default `./data`).
-- `SYSCAP_BIN` — path to the compiled helper (default `native/syscap`).
-- `DEMUCS_MODEL` — default `htdemucs`.
-- `MAX_DURATION_SECONDS` — safety cap on capture length (default 600).
-
----
-
-## Data model — the DB is a cache
-
-The **source of truth is the filesystem**, not SQLite. Every completed recording
-lives in its own directory with its stems and a JSON sidecar:
+The **source of truth is the filesystem**, not SQLite. Every recording lives in
+its own folder with its stems and a JSON sidecar:
 
 ```
 data/jobs/<job-id>/
 ├── original.mp3
 ├── drums.mp3
 ├── no_drums.mp3
-└── meta.json      # schema_version, title, artist, url, duration, timestamps, tracks
+├── thumbnail.jpg     # optional
+└── meta.json         # schema_version, title, artist, url, duration, timestamps, tracks
 ```
 
-`songcoach.db` is just a rebuildable index over those folders. Delete it, move
-the `data/` folder to another machine, or hand-edit a `meta.json` — then rebuild:
+`songcoach.db` is a rebuildable index over those folders. Delete it, move `data/`
+to another machine, or hand-edit a `meta.json`, then:
 
 ```bash
 python -m songcoach.rebuild            # drop + recreate the DB from disk
 python -m songcoach.rebuild --merge    # upsert without dropping existing rows
 ```
 
-The rebuild scans `data/jobs/*/meta.json` and derives each recording's tracks
-from the mp3 files actually present (the files win over the sidecar). Folders
-without a `meta.json` are ignored.
+The rebuild derives each recording's tracks from the mp3s actually present (files
+win over the sidecar) and also surfaces failed/orphaned captures as retryable.
 
-### Thumbnails
-
-For recordings that have a `youtube_url`, you can pull the video's thumbnail into
-its folder (`data/jobs/<id>/thumbnail.jpg`, also noted in `meta.json`):
-
-```bash
-python -m songcoach.fetch_thumbnails            # skips folders that already have one
-python -m songcoach.fetch_thumbnails --force    # re-download all
-```
-
-It uses YouTube's public image CDN (`img.youtube.com`) — no yt-dlp or API key —
-and needs internet access. Since a `youtube_url` can be added by hand-editing a
-`meta.json`, this pairs naturally with the rebuild workflow above.
-
----
-
-## Roadmap / progress tracker
-
-Legend: ✅ done · 🚧 in progress · ⬜ not started
-
-### Core pipeline
-- ✅ Native ScreenCaptureKit helper (`native/syscap.swift`) → system-audio `.m4a`
-- ✅ Python `Recorder` (start/stop) driving syscap as a subprocess
-- ✅ Demucs wrapper: audio → `drums` + `no_drums` (`--two-stems`, mp3 256k)
-- ✅ Inline (daemon-thread) separation + progress/status polling
-- ✅ SQLite + local-filesystem storage (served at `/media`)
-
-### UI
-- ✅ Home page: recording metadata (song / artist / optional URL) + Start/Stop capture
-- ✅ Home page: library list of recordings with their available stem files
-- ✅ Processing screen with live progress meter
-- ✅ Player: three synced WaveSurfer waveforms with solo switching
-- ✅ Region select + A–B loop (drag on any waveform)
-- ✅ Pitch-preserved slow-down (0.5×–1×)
-- ✅ Responsive layout: phone → iPad → desktop
-
-### Backlog
-- ⬜ Package as a native `.app` (pywebview shell) so the permission attaches to SongCoach itself
-- ⬜ Embedded browser for logging into sources inside the app
-- ⬜ Level meter / auto-detect "is audio playing"
-- ⬜ Delete/cleanup recordings from the library
-- ⬜ Metronome / count-in overlay
-- ⬜ Tests (pipeline, recorder, API)
-- ⬜ Resume: handle a YouTube job that hard-crashes *mid-stem*. The thumbnail
-  fetch writes `jobs/{id}/meta.json` early with a non-terminal status
-  (`queued`/`separating`), so on rebuild it resurrects as a stuck job with no
-  Retry button, even though `recordings/{id}/capture.m4a` still exists. (Failed
-  jobs and non-YouTube captures are already covered by the resume feature.)
-  Fix idea: in `rebuild()`, treat a job that has a non-terminal status + no
-  stem mp3s + a lingering capture as resumable (surface it as `failed` with a
-  Retry button).
-
----
-
-## Project layout
+### Project layout
 
 ```
 songcoach/
-├── native/
-│   └── syscap.swift        # ScreenCaptureKit system-audio helper (build → native/syscap)
+├── native/syscap.swift        # ScreenCaptureKit system-audio helper
 ├── songcoach/
-│   ├── main.py             # FastAPI app factory + routes wiring
-│   ├── config.py           # env-driven settings
-│   ├── db.py               # SQLAlchemy engine/session (SQLite)
-│   ├── models.py           # Job, Track
-│   ├── storage.py          # local-filesystem storage
-│   ├── metadata.py         # meta.json sidecar (source of truth)
-│   ├── rebuild.py          # rebuild the SQLite cache from disk
-│   ├── fetch_thumbnails.py # pull YouTube thumbnails into job folders
-│   ├── jobs.py             # background-thread dispatch
-│   ├── recording.py        # active-capture session manager
-│   ├── pipeline/
-│   │   ├── recorder.py     # drives native/syscap
-│   │   ├── process.py      # separate → publish stems → mark done
-│   │   └── separator.py    # Demucs
-│   ├── routes/             # pages + JSON API
-│   ├── templates/          # Jinja2 (base, index, player)
-│   └── static/             # css + js (WaveSurfer player)
-├── requirements.txt
-└── README.md
+│   ├── main.py                # FastAPI app factory + routes wiring
+│   ├── config.py · db.py · models.py · storage.py
+│   ├── metadata.py            # meta.json sidecar (source of truth)
+│   ├── rebuild.py             # rebuild the SQLite cache from disk
+│   ├── fetch_thumbnails.py    # YouTube + user-supplied cover thumbnails
+│   ├── jobs.py · recording.py # background dispatch + active-capture session
+│   ├── desktop.py             # frozen-app launcher (pywebview shell)
+│   ├── pipeline/              # recorder · process · separator (Demucs)
+│   ├── routes/ · templates/ · static/
+├── scripts/                   # build_macapp · sign · make_dmg · notarize · release
+├── packaging/entitlements.plist
+├── docs/packaging.md
+└── tests/
 ```
+
+---
+
+## Roadmap
+
+Legend: ✅ done · ⬜ not started
+
+- ✅ System-audio capture (ScreenCaptureKit) → Demucs stems → synced-waveform player
+- ✅ A–B loop, solo, pitch-preserved slow-down
+- ✅ Two capture modes (in-app YouTube player + manual system audio)
+- ✅ Retry a failed/interrupted separation without re-recording
+- ✅ Packaged as a signed & notarized macOS `.app`
+- ✅ Test suite (pipeline, rebuild, retry API, thumbnails)
+- ⬜ Delete/cleanup recordings from the library
+- ⬜ Metronome / count-in overlay
+- ⬜ Universal2 / Intel build; a lighter separation engine to shrink the download
+- ⬜ Auto-update (Sparkle)
+- ⬜ Edge case: a YouTube job that hard-crashes *mid-stem* resurrects as a stuck
+  job with no Retry button (see the note in `docs/` — non-YouTube captures and
+  normal failures are already covered)
+
+---
+
+## A note on what you record
+
+SongCoach separates audio you already have access to, on your own machine, for
+personal practice. The stems it makes stay local — they're never uploaded. Please
+respect the rights of the music you work with.
+
+## License
+
+To be decided — for now, all rights reserved by the author. Open an issue if
+you'd like to use SongCoach beyond personal practice.
+
+Built for drummers. 🥁
