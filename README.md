@@ -226,7 +226,7 @@ respect the rights of the music you work with.
 
 ## License
 
-To be decided — for now, all rights reserved by the author. Open an issue if
-you'd like to use SongCoach beyond personal practice.
+[MIT](LICENSE) © 2026 Nigel Fernandes. (The license covers SongCoach's code —
+not the music you separate with it.)
 
 Built for drummers. 🥁
