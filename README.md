@@ -2,6 +2,8 @@
 
 **Isolate the drums. Loop the fill. Lock in the groove.**
 
+![SongCoach's player: the full song, drums, and no-drums stems as three synced, colour-coded waveforms with transport, A–B loop, and speed controls](assets/hero.png)
+
 SongCoach is a local macOS app for drummers. Play any song through your Mac — a
 YouTube tab, Spotify, Apple Music, a file — and SongCoach captures the audio and
 uses an AI source-separation model ([Demucs](https://github.com/adefossez/demucs))
