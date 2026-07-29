@@ -39,7 +39,7 @@ def _data_root() -> Path:
 def build_export(dest_zip: Path) -> int:
     """Zip data/jobs + data/recordings + a manifest into dest_zip. Return job count."""
     root = _data_root()
-    job_count = sum(1 for p in (root / "jobs").glob("*") if p.is_dir())
+    job_count = sum(1 for p in (root / _TOP_DIRS[0]).glob("*") if p.is_dir())
     with zipfile.ZipFile(dest_zip, "w", zipfile.ZIP_STORED) as zf:
         for top in _TOP_DIRS:
             base = root / top

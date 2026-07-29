@@ -1,5 +1,6 @@
 import io
 import json
+import stat
 import zipfile
 from pathlib import Path
 
@@ -150,3 +151,22 @@ def test_import_survives_file_dir_collision(storage_dir, tmp_path):
     assert result.updated == 1
     # The pre-existing job files should still exist.
     assert (storage_dir / "jobs" / "col1" / "meta.json").exists()
+
+
+def test_import_symlink_member_becomes_inert_regular_file(storage_dir, tmp_path):
+    # A zip member flagged as a symlink pointing outside data/ must be written as a
+    # plain regular file (containing the link target string), NOT a real symlink —
+    # otherwise a later write could be redirected outside data/.
+    zpath = tmp_path / "sym.zip"
+    with zipfile.ZipFile(zpath, "w") as zf:
+        info = zipfile.ZipInfo("jobs/evil/link")
+        info.external_attr = (0o120777 & 0xFFFF) << 16  # S_IFLNK | 0777
+        zf.writestr(info, "../../../../../../etc/passwd")
+
+    archive.import_archive(zpath)
+
+    target = storage_dir / "jobs" / "evil" / "link"
+    assert target.exists()
+    assert not target.is_symlink()          # written as a regular file, not a link
+    assert target.is_file()
+    assert target.read_text() == "../../../../../../etc/passwd"  # link target is inert data

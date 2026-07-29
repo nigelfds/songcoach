@@ -208,7 +208,11 @@ def export_data():
         raise HTTPException(status_code=409, detail="Stop the current recording first.")
     fd, tmp = tempfile.mkstemp(suffix=".zip")
     os.close(fd)
-    archive.build_export(Path(tmp))
+    try:
+        archive.build_export(Path(tmp))
+    except Exception:
+        os.unlink(tmp)
+        raise
     filename = f"SongCoach-export-{date.today():%Y%m%d}.zip"
     return FileResponse(
         tmp, media_type="application/zip", filename=filename,
