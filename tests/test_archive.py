@@ -115,3 +115,38 @@ def test_import_non_zip_raises(storage_dir, tmp_path):
     bad.write_bytes(b"not a zip")
     with pytest.raises(archive.ArchiveError):
         archive.import_archive(bad)
+
+
+def test_import_rejects_dotdot_component_in_job_path(storage_dir, tmp_path):
+    # Build a zip with a traversal member that passes _within (resolves inside root)
+    # but contains .. in the path components.
+    zpath = tmp_path / "evil.zip"
+    with zipfile.ZipFile(zpath, "w") as zf:
+        zf.writestr("jobs/../recordings/evil/capture.m4a", "pwned")
+
+    result = archive.import_archive(zpath)
+
+    # Should be rejected: no files extracted, no jobs counted
+    assert result.added == 0
+    assert result.updated == 0
+    # Verify the file was NOT written anywhere
+    assert not (storage_dir / "recordings" / "evil").exists()
+    assert not (storage_dir / "jobs" / ".." / "recordings").exists()
+
+
+def test_import_survives_file_dir_collision(storage_dir, tmp_path):
+    # Create a real job directory on disk.
+    _job(storage_dir, "col1")
+
+    # Build a zip with a file member named exactly "jobs/col1" (collides with dir).
+    zpath = tmp_path / "collision.zip"
+    with zipfile.ZipFile(zpath, "w") as zf:
+        zf.writestr("jobs/col1", b"file-content")
+
+    # Should NOT raise; should skip the bad member and complete import.
+    result = archive.import_archive(zpath)
+
+    # Pre-existing job was not touched (added=0, updated=1 because col1 exists)
+    assert result.updated == 1
+    # The pre-existing job files should still exist.
+    assert (storage_dir / "jobs" / "col1" / "meta.json").exists()

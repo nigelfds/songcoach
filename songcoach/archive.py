@@ -84,6 +84,10 @@ def import_archive(zip_path: Path) -> ImportResult:
             parts = PurePosixPath(info.filename).parts
             if not parts or parts[0] not in _TOP_DIRS:
                 continue  # whitelist: ignore manifest + anything else
+            # Reject members with . or .. components (defense-in-depth on zip-slip).
+            if any(p in (".", "..") for p in parts):
+                log.warning("Skipping archive member with . or .. component: %s", info.filename)
+                continue
             target = root / info.filename
             if not _within(target, root):
                 log.warning("Skipping unsafe archive member: %s", info.filename)
@@ -95,9 +99,13 @@ def import_archive(zip_path: Path) -> ImportResult:
         pre_existing = {j for j in archive_job_ids if (root / "jobs" / j).is_dir()}
 
         for info, target in members:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with zf.open(info) as src, open(target, "wb") as dst:
-                shutil.copyfileobj(src, dst)
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with zf.open(info) as src, open(target, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
+            except OSError as exc:
+                log.warning("Failed to extract archive member (skipping): %s — %s", info.filename, exc)
+                continue
 
     rebuild(reset=True)
     return ImportResult(added=len(archive_job_ids - pre_existing), updated=len(pre_existing))
