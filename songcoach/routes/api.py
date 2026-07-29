@@ -1,12 +1,20 @@
 """JSON API: drive recordings, poll status, fetch track URLs."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+import os
+import shutil
+import tempfile
+from datetime import date
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from starlette.background import BackgroundTask
 
-from .. import fetch_thumbnails, jobs, metadata, recording, youtube
+from .. import archive, fetch_thumbnails, jobs, metadata, recording, youtube
 from ..db import get_session
 from ..models import Job, JobStatus
 from ..pipeline.recorder import RecorderError, capture_dir
@@ -191,3 +199,35 @@ def retry_job(job_id: str, session: Session = Depends(get_session)):
     session.commit()
     jobs.enqueue_processing(job_id)
     return _serialize(job)
+
+
+@router.get("/export")
+def export_data():
+    """Download the whole data/ library as a .zip."""
+    if recording.is_recording():
+        raise HTTPException(status_code=409, detail="Stop the current recording first.")
+    fd, tmp = tempfile.mkstemp(suffix=".zip")
+    os.close(fd)
+    archive.build_export(Path(tmp))
+    filename = f"SongCoach-export-{date.today():%Y%m%d}.zip"
+    return FileResponse(
+        tmp, media_type="application/zip", filename=filename,
+        background=BackgroundTask(os.unlink, tmp),
+    )
+
+
+@router.post("/import")
+def import_data(file: UploadFile):
+    """Merge an uploaded .zip into the library (cp -rf) and rebuild the cache."""
+    if recording.is_recording():
+        raise HTTPException(status_code=409, detail="Stop the current recording first.")
+    fd, tmp = tempfile.mkstemp(suffix=".zip")
+    try:
+        with os.fdopen(fd, "wb") as out:
+            shutil.copyfileobj(file.file, out)
+        result = archive.import_archive(Path(tmp))
+    except archive.ArchiveError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    finally:
+        os.unlink(tmp)
+    return {"added": result.added, "updated": result.updated}
