@@ -56,3 +56,48 @@ def build_export(dest_zip: Path) -> int:
         }
         zf.writestr(MANIFEST_NAME, json.dumps(manifest, indent=2))
     return job_count
+
+
+def _within(target: Path, root: Path) -> bool:
+    try:
+        return target.resolve().is_relative_to(root.resolve())
+    except (ValueError, OSError):
+        return False
+
+
+def import_archive(zip_path: Path) -> ImportResult:
+    """Extract jobs/+recordings/ members over data/ (cp -rf), rebuild the cache."""
+    from .rebuild import rebuild  # local import avoids a cycle at module load
+
+    root = _data_root()
+    try:
+        zf = zipfile.ZipFile(zip_path)
+    except zipfile.BadZipFile as exc:
+        raise ArchiveError("That doesn't look like a SongCoach export.") from exc
+
+    archive_job_ids: set[str] = set()
+    members: list[tuple[zipfile.ZipInfo, Path]] = []
+    with zf:
+        for info in zf.infolist():
+            if info.is_dir():
+                continue
+            parts = PurePosixPath(info.filename).parts
+            if not parts or parts[0] not in _TOP_DIRS:
+                continue  # whitelist: ignore manifest + anything else
+            target = root / info.filename
+            if not _within(target, root):
+                log.warning("Skipping unsafe archive member: %s", info.filename)
+                continue
+            if parts[0] == "jobs" and len(parts) >= 2:
+                archive_job_ids.add(parts[1])
+            members.append((info, target))
+
+        pre_existing = {j for j in archive_job_ids if (root / "jobs" / j).is_dir()}
+
+        for info, target in members:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with zf.open(info) as src, open(target, "wb") as dst:
+                shutil.copyfileobj(src, dst)
+
+    rebuild(reset=True)
+    return ImportResult(added=len(archive_job_ids - pre_existing), updated=len(pre_existing))
