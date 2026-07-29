@@ -99,7 +99,14 @@
   </div>
 
   <section class="library hero__panel" aria-label="Recordings">
-    <span class="tape__label">Library · {{ jobs|length }} recording{{ '' if jobs|length == 1 else 's' }}</span>
+    <div class="library__head">
+      <span class="tape__label">Library · {{ jobs|length }} recording{{ '' if jobs|length == 1 else 's' }}</span>
+      <div class="library__actions">
+        <button id="export-btn" type="button" class="chip chip--ghost">⤓ Export</button>
+        <button id="import-btn" type="button" class="chip chip--ghost">⤒ Import</button>
+        <input id="import-file" type="file" accept=".zip" hidden />
+      </div>
+    </div>
     {% if jobs %}
     <ul class="rec-list">
       {% for job in jobs %}
@@ -135,6 +142,10 @@
   </section>
 
   <p class="footnote">Built for drummers. Separation runs on an AI model and can take a couple of minutes.</p>
+  <div id="io-overlay" class="io-overlay" hidden>
+    <div class="io-overlay__card"><span class="io-spinner"></span><p id="io-overlay-msg">Importing… this can take a minute.</p></div>
+  </div>
+  <div id="io-toast" class="io-toast" role="status" hidden></div>
 </main>
 {% endblock %}
-{% block scripts %}<script src="/static/js/app.js"></script>{% endblock %}
+{% block scripts %}<script src="/static/js/app.js"></script><script src="/static/js/library.js"></script>{% endblock %}

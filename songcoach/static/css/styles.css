@@ -524,3 +524,32 @@ a { color: inherit; }
 .speed select:focus-visible, .meta__in:focus-visible, .rec:focus-visible {
   outline: 2px solid var(--amber); outline-offset: 2px;
 }
+
+/* Library export/import */
+.library__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.library__actions { display: flex; gap: 0.5rem; }
+
+.io-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+.io-overlay__card {
+  display: flex; flex-direction: column; align-items: center; gap: 0.9rem;
+  padding: 1.6rem 2rem; border-radius: 12px;
+  background: #1a1a1d; color: #f2f2f2; text-align: center;
+}
+.io-spinner {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.25); border-top-color: #fff;
+  animation: io-spin 0.8s linear infinite;
+}
+@keyframes io-spin { to { transform: rotate(360deg); } }
+
+.io-toast {
+  position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%);
+  z-index: 60; padding: 0.7rem 1.1rem; border-radius: 10px;
+  background: #1f6f43; color: #fff; font-size: 0.95rem;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+.io-toast--error { background: #8a2d2d; }
