@@ -70,6 +70,14 @@ Your library lists every recording; click one to reopen its player. If a
 separation ever fails, the recording is kept and you can **retry** it without
 re-recording.
 
+### Move your library to another Mac
+
+Your whole library lives in one folder, so moving it is two clicks. On the old
+Mac, hit **Export** to download a `SongCoach-export-….zip`. Copy it over
+(AirDrop, USB, wherever), then on the new Mac hit **Import** and pick the zip —
+your recordings merge in (anything with the same ID is overwritten) and the
+library reloads. Nothing leaves your machines but the file you carry.
+
 ---
 
 ## How it works
@@ -210,6 +218,7 @@ Legend: ✅ done · ⬜ not started
 - ✅ Retry a failed/interrupted separation without re-recording
 - ✅ Packaged as a signed & notarized macOS `.app`
 - ✅ Test suite (pipeline, rebuild, retry API, thumbnails)
+- ✅ Export / import your library as a `.zip` (move it between Macs)
 - ⬜ Delete/cleanup recordings from the library
 - ⬜ Metronome / count-in overlay
 - ⬜ Universal2 / Intel build; a lighter separation engine to shrink the download
