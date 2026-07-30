@@ -45,9 +45,14 @@ class SegmentedRecorder:
     def _end_segment(self) -> None:
         if self._active is None:
             return
-        result = self._active.stop()
-        self._durations.append(result.duration or 0.0)
+        rec = self._active
         self._active = None
+        try:
+            result = rec.stop()
+        except RecorderError as exc:
+            log.warning("Segment produced no audio, dropping it: %s", exc)
+            return
+        self._durations.append(result.duration or 0.0)
 
     def pause(self) -> None:
         self._end_segment()
@@ -76,9 +81,11 @@ class SegmentedRecorder:
         listfile.write_text("".join(f"file '{p.resolve()}'\n" for p in segs), encoding="utf-8")
         base = [settings.ffmpeg_bin, "-y", "-f", "concat", "-safe", "0", "-i", str(listfile)]
         try:
-            subprocess.run(base + ["-c", "copy", str(dest)],
-                           check=True, capture_output=True, text=True)
+            subprocess.run(base + ["-c", "copy", str(dest)], check=True, capture_output=True, text=True)
+            return
         except subprocess.CalledProcessError:
             log.warning("concat -c copy failed; re-encoding to AAC")
-            subprocess.run(base + ["-c:a", "aac", "-b:a", "256k", str(dest)],
-                           check=True, capture_output=True, text=True)
+        try:
+            subprocess.run(base + ["-c:a", "aac", "-b:a", "256k", str(dest)], check=True, capture_output=True, text=True)
+        except subprocess.CalledProcessError as exc:
+            raise RecorderError(f"concat failed: {(exc.stderr or '').strip()[:200]}") from exc
