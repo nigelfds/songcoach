@@ -7,7 +7,7 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -15,8 +15,9 @@ from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 
 from .. import archive, fetch_thumbnails, jobs, metadata, recording, youtube
+from ..rebuild import rebuild
 from ..apple_music import service as apple_music_service
-from ..db import get_session
+from ..db import get_session, SessionLocal
 from ..models import Job, JobStatus
 from ..pipeline.recorder import RecorderError, capture_dir
 from ..storage import get_storage
@@ -180,6 +181,31 @@ def update_job(job_id: str, payload: UpdateJobIn, session: Session = Depends(get
         fetch_thumbnails.refresh_job_thumbnail_async(job_id)
 
     return _serialize(job)
+
+
+@router.delete("/jobs/{job_id}", status_code=204)
+def delete_job(job_id: str):
+    """Soft-delete a recording: flag its sidecar and drop it from the index.
+
+    The files on disk are left untouched. Its own session is closed before the
+    rebuild so the drop-and-recreate doesn't race an open transaction.
+    """
+    session = SessionLocal()
+    try:
+        job = session.get(Job, job_id)
+        status = job.status if job is not None else None
+    finally:
+        session.close()
+
+    if status is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if status not in (JobStatus.done, JobStatus.failed):
+        raise HTTPException(status_code=409, detail="Can't delete while it's still processing.")
+    if not metadata.mark_deleted(job_id):
+        raise HTTPException(status_code=404, detail="Recording not found on disk")
+
+    rebuild(reset=True)   # refresh the index — the deleted item drops out
+    return Response(status_code=204)
 
 
 @router.post("/jobs/{job_id}/retry", response_model=JobOut)

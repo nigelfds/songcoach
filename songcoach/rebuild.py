@@ -115,6 +115,8 @@ def rebuild(*, reset: bool = True) -> int:
             except (ValueError, OSError) as exc:
                 log.warning("Skipping unreadable %s: %s", meta_file, exc)
                 continue
+            if data.get("deleted"):
+                continue   # soft-deleted → not indexed, absent from the library
             job = _job_from_meta(data, meta_file.parent)
             if job is None:
                 continue

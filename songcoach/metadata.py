@@ -86,5 +86,22 @@ def write_meta(job: Job) -> Path:
     return path
 
 
+def mark_deleted(job_id: str) -> bool:
+    """Soft-delete: set ``deleted: true`` in the job's sidecar, atomically.
+
+    The stem files / thumbnail / capture on disk are left untouched. Returns
+    ``False`` if there is no sidecar to mark.
+    """
+    path = meta_path(job_id)
+    if not path.exists():
+        return False
+    data = read_meta(path)
+    data["deleted"] = True
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    tmp.replace(path)  # atomic swap on POSIX
+    return True
+
+
 def read_meta(path: str | Path) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
