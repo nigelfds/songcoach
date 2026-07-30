@@ -111,3 +111,16 @@ def test_delete_failed_job_not_resurrected(client, storage_dir):
         s.close()
     assert _sidecar(jid)["deleted"] is True
     assert (cap_dir / "capture.m4a").exists()   # files still untouched (soft delete)
+
+
+def test_write_meta_preserves_deleted_flag(storage_dir):
+    # A late/async write_meta (e.g. thumbnail refresh) must NOT clobber a
+    # deleted flag set by mark_deleted — otherwise the recording resurrects.
+    jid = _seed_job("wm1")
+    assert metadata.mark_deleted(jid) is True
+    s = SessionLocal()
+    try:
+        metadata.write_meta(s.get(Job, jid))
+    finally:
+        s.close()
+    assert _sidecar(jid)["deleted"] is True
