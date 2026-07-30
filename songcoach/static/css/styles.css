@@ -566,6 +566,14 @@ a { color: inherit; }
 
 .am-status { display: flex; align-items: center; gap: 0.6rem; margin: 0.8rem 0; }
 .am-captured { list-style: none; margin: 0.6rem 0 1rem; padding: 0; max-height: 180px; overflow-y: auto; }
-.am-captured li { padding: 0.35rem 0; border-bottom: 1px solid rgba(0,0,0,0.08); font-size: 0.95rem; }
+.am-captured li { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+  padding: 0.35rem 0; border-bottom: 1px solid rgba(0,0,0,0.08); font-size: 0.95rem; }
 .am-captured li:last-child { border-bottom: none; }
+.am-song { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.am-song-status { flex: none; font-size: 0.78rem; letter-spacing: .02em; text-transform: uppercase;
+  color: var(--ink-dim); }
+.am-song-status[data-status="done"] { color: #1f6f43; }
+.am-song-status[data-status="failed"] { color: #8a2d2d; }
+.am-song-status[data-status="separating"],
+.am-song-status[data-status="uploading"] { color: var(--amber); }
 #am-stop { margin-top: 0.6rem; }

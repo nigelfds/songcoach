@@ -159,3 +159,16 @@ def test_finish_failure_discards_song(wired, monkeypatch, storage_dir):
 def _only_job_id(session):
     # The session exposes its current job id via status()/internal for the test.
     return session._job_id
+
+
+def test_status_captured_includes_live_job_state(wired):
+    s = AppleMusicSession()
+    s.start()
+    s.on_state(_play("A"))
+    s.on_state(MusicState("stopped"))     # finalize + dispatch A
+    cap = s.status()["captured"]
+    assert len(cap) == 1
+    assert cap[0]["status"] == "queued"   # enqueued; stem worker mocked, so it stays queued
+    assert "progress" in cap[0]
+    assert cap[0]["title"] == "Song"
+    s.stop()

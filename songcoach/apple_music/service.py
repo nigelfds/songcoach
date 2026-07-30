@@ -36,15 +36,17 @@ def start_mode() -> dict:
 
 
 def stop_mode() -> dict:
-    global _session, _watcher
+    global _watcher
     with _lock:
         if _watcher is not None:
             _watcher.stop()
+            _watcher = None
         if _session is not None:
             _session.stop()
-        status = _status_locked()
-        _session = _watcher = None
-        return status
+        # Keep _session (now inactive) so status() can keep reporting the
+        # just-dispatched songs' stem progress after the user hits Stop. A later
+        # start_mode() replaces it with a fresh session.
+        return _status_locked()
 
 
 def status() -> dict:

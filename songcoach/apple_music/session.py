@@ -56,12 +56,36 @@ class AppleMusicSession:
 
     def status(self) -> dict:
         with self._lock:
-            return {
-                "active": self._active,
-                "phase": self._phase,
-                "current": dict(self._current) if self._phase in ("capturing", "paused") else None,
-                "captured": list(self._captured),
-            }
+            active = self._active
+            phase = self._phase
+            current = dict(self._current) if phase in ("capturing", "paused") else None
+            captured = list(self._captured)
+        # Enrich each dispatched song with its live separation state (queued →
+        # separating → done) so the UI can show stem progress. Done outside the
+        # lock so the DB reads don't block the watcher thread's on_state().
+        return {
+            "active": active,
+            "phase": phase,
+            "current": current,
+            "captured": self._with_job_state(captured),
+        }
+
+    def _with_job_state(self, captured: list[dict]) -> list[dict]:
+        if not captured:
+            return []
+        session = SessionLocal()
+        try:
+            out = []
+            for c in captured:
+                job = session.get(Job, c["job_id"])
+                out.append({
+                    **c,
+                    "status": job.status.value if job is not None else "unknown",
+                    "progress": job.progress if job is not None else 0,
+                })
+            return out
+        finally:
+            session.close()
 
     # ---- event handling --------------------------------------------------
     def on_state(self, s: MusicState) -> None:

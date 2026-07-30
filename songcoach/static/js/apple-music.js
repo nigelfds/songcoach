@@ -15,25 +15,55 @@ const PHASE_LABEL = {
   paused: "❚❚ Paused",
 };
 
+// Per-song separation state → short chip label.
+const AM_STATUS = {
+  recording: "capturing…",
+  queued: "queued",
+  separating: "separating…",
+  uploading: "finishing…",
+  done: "done ✓",
+  failed: "failed",
+};
+
+const amSettled = (c) => c.status === "done" || c.status === "failed";
+
 function amRender(s) {
   const active = !!s.active;
+  const captured = s.captured || [];
   amStart.hidden = active;
   amStop.hidden = !active;
   amLed.dataset.on = active && s.phase !== "armed" ? "true" : "false";
   if (amBack) amBack.disabled = active;           // no leaving mid-session
   amPerm.hidden = !s.permission_error;
 
-  let label = active ? PHASE_LABEL[s.phase] || "Active" : "Not started";
-  if (active && s.current && (s.phase === "capturing" || s.phase === "paused")) {
-    const who = s.current.artist ? ` — ${s.current.artist}` : "";
-    label += `: ${s.current.name || "Unknown"}${who}`;
+  let label;
+  if (active) {
+    label = PHASE_LABEL[s.phase] || "Active";
+    if (s.current && (s.phase === "capturing" || s.phase === "paused")) {
+      const who = s.current.artist ? ` — ${s.current.artist}` : "";
+      label += `: ${s.current.name || "Unknown"}${who}`;
+    }
+  } else if (captured.length) {
+    const done = captured.filter((c) => c.status === "done").length;
+    label = done === captured.length
+      ? `All ${captured.length} stemmed ✓`
+      : `Stemming… ${done} of ${captured.length} done`;
+  } else {
+    label = "Not started";
   }
   amState.textContent = label;
 
-  amCaptured.innerHTML = "";
-  (s.captured || []).forEach((c) => {
+  amCaptured.replaceChildren();
+  captured.forEach((c) => {
     const li = document.createElement("li");
-    li.textContent = c.artist ? `${c.title} · ${c.artist}` : c.title || "Untitled";
+    const name = document.createElement("span");
+    name.className = "am-song";
+    name.textContent = c.artist ? `${c.title} · ${c.artist}` : c.title || "Untitled";
+    const badge = document.createElement("span");
+    badge.className = "am-song-status";
+    badge.dataset.status = c.status || "";
+    badge.textContent = AM_STATUS[c.status] || "…";
+    li.append(name, badge);
     amCaptured.appendChild(li);
   });
 }
@@ -42,7 +72,10 @@ async function amPoll() {
   try {
     const s = await (await fetch("/api/apple-music/status")).json();
     amRender(s);
-    if (!s.active && amPollId) { clearInterval(amPollId); amPollId = null; }
+    // Keep polling after Stop until every dispatched song has finished stemming,
+    // so the list shows queued → separating → done live.
+    const allDone = (s.captured || []).every(amSettled);
+    if (!s.active && allDone && amPollId) { clearInterval(amPollId); amPollId = null; }
   } catch {}
 }
 
@@ -71,7 +104,7 @@ amStop?.addEventListener("click", async () => {
   try {
     const res = await fetch("/api/apple-music/stop", { method: "POST" });
     amRender(await res.json());
-    if (amPollId) { clearInterval(amPollId); amPollId = null; }
+    amStartPolling();   // keep polling so the dispatched songs' stem progress updates live
   } finally {
     amStop.disabled = false;
   }

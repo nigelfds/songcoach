@@ -61,3 +61,12 @@ def test_start_mode_clears_guard_if_watcher_start_fails(client, monkeypatch):
     with pytest.raises(RuntimeError):
         service.start_mode()
     assert recording.apple_music_active() is False
+
+
+def test_stop_mode_keeps_session_for_progress(client):
+    from songcoach.apple_music import service
+    service.start_mode()
+    service.stop_mode()
+    # Session is kept (inactive) so status() can keep reporting stem progress.
+    assert service._session is not None
+    assert service.status()["active"] is False
