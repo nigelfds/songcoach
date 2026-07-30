@@ -21,16 +21,28 @@ log = logging.getLogger("songcoach.recording")
 
 _lock = threading.Lock()
 _active: dict | None = None  # {"job_id": str, "recorder": Recorder}
+_apple_music_active = False
 
 
 def is_recording() -> bool:
     return _active is not None
 
 
+def apple_music_active() -> bool:
+    return _apple_music_active
+
+
+def set_apple_music_active(value: bool) -> None:
+    global _apple_music_active
+    _apple_music_active = bool(value)
+
+
 def start(*, title: str, artist: str | None = None, youtube_url: str | None = None) -> str:
     """Begin a capture with its metadata and return the new job id."""
     global _active
     with _lock:
+        if _apple_music_active:
+            raise RecorderError("Apple Music mode is running — stop it first")
         if _active is not None:
             raise RecorderError("A recording is already in progress")
 
