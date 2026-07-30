@@ -110,6 +110,52 @@ def test_mid_song_entry_captures_current(wired):
     s.stop()
 
 
+def test_paused_then_different_track_finalizes_and_starts_next(wired):
+    s = AppleMusicSession()
+    s.start()
+    s.on_state(_play("A"))
+    s.on_state(MusicState("paused", "A", "Song", "Artist"))
+    assert s.status()["phase"] == "paused"
+    s.on_state(_play("B"))                       # different track while PAUSED
+    assert len(wired) == 1                         # A dispatched
+    assert len(FakeSegRec.instances) == 2         # A finalized, B started
+    assert s.status()["phase"] == "capturing"
+    s.stop()
+    assert len(wired) == 2
+
+
+def test_begin_song_failure_marks_failed_and_stays_armed(wired, monkeypatch):
+    from songcoach.pipeline.recorder import RecorderError
+    class FailingSegRec(FakeSegRec):
+        def start(self):
+            raise RecorderError("no screen-recording permission")
+    monkeypatch.setattr(session_mod, "SegmentedRecorder", FailingSegRec)
+    s = AppleMusicSession()
+    s.start()
+    s.on_state(_play("A"))
+    assert s.status()["phase"] == "armed"         # reset to armed after failure
+    assert wired == []                             # nothing dispatched
+    rows = SessionLocal().query(Job).all()
+    assert any(j.status == JobStatus.failed for j in rows)   # job marked failed
+    s.stop()
+
+
+def test_finish_failure_discards_song(wired, monkeypatch, storage_dir):
+    from songcoach.pipeline.recorder import RecorderError
+    class FinishFailsSegRec(FakeSegRec):
+        def finish(self):
+            raise RecorderError("no audio captured")
+    monkeypatch.setattr(session_mod, "SegmentedRecorder", FinishFailsSegRec)
+    s = AppleMusicSession()
+    s.start()
+    s.on_state(_play("A"))
+    job_id = s._job_id
+    s.on_state(MusicState("stopped"))
+    assert wired == []                             # not enqueued
+    assert SessionLocal().get(Job, job_id) is None # song discarded
+    s.stop()
+
+
 def _only_job_id(session):
     # The session exposes its current job id via status()/internal for the test.
     return session._job_id

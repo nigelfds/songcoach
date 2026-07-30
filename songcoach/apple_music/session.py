@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import shutil
+import threading
 
 from .. import metadata, recording, stem_queue
 from ..config import settings
@@ -25,6 +26,7 @@ log = logging.getLogger("songcoach.apple_music.session")
 class AppleMusicSession:
     def __init__(self, *, min_song_seconds: int = 5):
         self._min = min_song_seconds
+        self._lock = threading.Lock()
         self._active = False
         self._phase = "armed"                 # armed | capturing | paused
         self._job_id: str | None = None
@@ -35,51 +37,57 @@ class AppleMusicSession:
 
     # ---- lifecycle -------------------------------------------------------
     def start(self) -> None:
-        recording.set_apple_music_active(True)
-        self._active = True
-        self._phase = "armed"
+        with self._lock:
+            recording.set_apple_music_active(True)
+            self._active = True
+            self._phase = "armed"
         log.info("Apple Music mode started")
 
     def stop(self) -> None:
-        if self._recorder is not None:
-            self._finalize_current()
-        self._active = False
-        self._phase = "armed"
-        recording.set_apple_music_active(False)
+        with self._lock:
+            try:
+                if self._recorder is not None:
+                    self._finalize_current()
+            finally:
+                self._active = False
+                self._phase = "armed"
+                recording.set_apple_music_active(False)
         log.info("Apple Music mode stopped")
 
     def status(self) -> dict:
-        return {
-            "active": self._active,
-            "phase": self._phase,
-            "current": dict(self._current) if self._phase in ("capturing", "paused") else None,
-            "captured": list(self._captured),
-        }
+        with self._lock:
+            return {
+                "active": self._active,
+                "phase": self._phase,
+                "current": dict(self._current) if self._phase in ("capturing", "paused") else None,
+                "captured": list(self._captured),
+            }
 
     # ---- event handling --------------------------------------------------
     def on_state(self, s: MusicState) -> None:
-        if not self._active:
-            return
-        if s.state == "playing":
-            if self._phase == "armed":
-                self._begin_song(s)
-            elif self._phase == "paused":
-                if s.track_id == self._track_id:
-                    self._resume_song()
-                else:
-                    self._finalize_current()
+        with self._lock:
+            if not self._active:
+                return
+            if s.state == "playing":
+                if self._phase == "armed":
                     self._begin_song(s)
-            elif self._phase == "capturing":
-                if s.track_id != self._track_id:
+                elif self._phase == "paused":
+                    if s.track_id == self._track_id:
+                        self._resume_song()
+                    else:
+                        self._finalize_current()
+                        self._begin_song(s)
+                elif self._phase == "capturing":
+                    if s.track_id != self._track_id:
+                        self._finalize_current()
+                        self._begin_song(s)
+            elif s.state == "paused":
+                if self._phase == "capturing":
+                    self._pause_song()
+            elif s.state in ("stopped", "closed"):
+                if self._phase in ("capturing", "paused"):
                     self._finalize_current()
-                    self._begin_song(s)
-        elif s.state == "paused":
-            if self._phase == "capturing":
-                self._pause_song()
-        elif s.state in ("stopped", "closed"):
-            if self._phase in ("capturing", "paused"):
-                self._finalize_current()
-                self._phase = "armed"
+                    self._phase = "armed"
 
     # ---- actions ---------------------------------------------------------
     def _begin_song(self, s: MusicState) -> None:
