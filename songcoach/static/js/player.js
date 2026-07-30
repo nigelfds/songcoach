@@ -651,6 +651,20 @@ document.getElementById("help-open").addEventListener("click", openHelp);
 document.getElementById("help-close").addEventListener("click", closeHelp);
 helpOverlay.addEventListener("click", (e) => { if (e.target === helpOverlay) closeHelp(); });
 
+// Delete recording
+document.getElementById("delete-open").addEventListener("click", async () => {
+  if (!confirm("Delete this recording? It's removed from your library. " +
+               "The audio files stay on disk.")) return;
+  try {
+    const res = await fetch(`/api/jobs/${jobId}`, { method: "DELETE" });
+    if (res.status === 204) { location.href = "/"; return; }
+    const d = await res.json().catch(() => ({}));
+    alert(d.detail || "Could not delete this recording.");
+  } catch (err) {
+    alert("Could not delete this recording: " + err.message);
+  }
+});
+
 // ---------------------------------------------------------------------------
 function fmt(sec) {
   sec = Math.max(0, Math.floor(sec || 0));

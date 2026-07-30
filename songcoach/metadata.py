@@ -77,13 +77,42 @@ def to_dict(job: Job) -> dict:
 
 
 def write_meta(job: Job) -> Path:
-    """Write the job's sidecar atomically into its output directory."""
+    """Write the job's sidecar atomically into its output directory.
+
+    A ``deleted`` flag set out-of-band by ``mark_deleted`` is preserved, so a
+    concurrent/late writer (e.g. an async thumbnail refresh) can never resurrect
+    a soft-deleted recording by rewriting its sidecar.
+    """
     path = meta_path(job.id)
+    data = to_dict(job)
+    if path.exists():
+        try:
+            if read_meta(path).get("deleted"):
+                data["deleted"] = True
+        except (ValueError, OSError):
+            pass
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(to_dict(job), indent=2), encoding="utf-8")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
     tmp.replace(path)  # atomic swap on POSIX
     return path
+
+
+def mark_deleted(job_id: str) -> bool:
+    """Soft-delete: set ``deleted: true`` in the job's sidecar, atomically.
+
+    The stem files / thumbnail / capture on disk are left untouched. Returns
+    ``False`` if there is no sidecar to mark.
+    """
+    path = meta_path(job_id)
+    if not path.exists():
+        return False
+    data = read_meta(path)
+    data["deleted"] = True
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    tmp.replace(path)  # atomic swap on POSIX
+    return True
 
 
 def read_meta(path: str | Path) -> dict:

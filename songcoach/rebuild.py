@@ -25,6 +25,17 @@ from .models import Job, JobStatus, Track, TrackKind
 log = logging.getLogger("songcoach.rebuild")
 
 
+def _is_soft_deleted(job_id: str) -> bool:
+    """Check if a job's sidecar has the soft-delete flag set."""
+    meta = Path(settings.local_storage_dir) / "jobs" / job_id / META_FILENAME
+    if not meta.exists():
+        return False
+    try:
+        return bool(read_meta(meta).get("deleted"))
+    except (ValueError, OSError):
+        return False
+
+
 def _parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -81,6 +92,8 @@ def _index_orphan_captures(session, indexed_ids: set[str]) -> int:
         job_id = capture.parent.name
         if job_id in indexed_ids or session.get(Job, job_id) is not None:
             continue
+        if _is_soft_deleted(job_id):
+            continue   # soft-deleted → don't resurrect from a lingering capture
         mtime = datetime.fromtimestamp(capture.stat().st_mtime).astimezone()
         session.merge(Job(
             id=job_id,
@@ -115,6 +128,8 @@ def rebuild(*, reset: bool = True) -> int:
             except (ValueError, OSError) as exc:
                 log.warning("Skipping unreadable %s: %s", meta_file, exc)
                 continue
+            if data.get("deleted"):
+                continue   # soft-deleted → not indexed, absent from the library
             job = _job_from_meta(data, meta_file.parent)
             if job is None:
                 continue
