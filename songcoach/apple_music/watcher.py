@@ -17,12 +17,12 @@ log = logging.getLogger("songcoach.apple_music.watcher")
 _SCRIPT = '''
 if application "Music" is running then
   tell application "Music"
-    set st to (player state as text)
-    if st is "stopped" then
+    set pstate to (player state as text)
+    if pstate is "stopped" then
       return "stopped"
     else
-      set t to current track
-      return st & tab & (persistent ID of t) & tab & (name of t) & tab & (artist of t)
+      set trk to current track
+      return pstate & tab & (persistent ID of trk) & tab & (name of trk) & tab & (artist of trk)
     end if
   end tell
 else
