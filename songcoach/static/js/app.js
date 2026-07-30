@@ -21,6 +21,7 @@ const modePicker = document.getElementById("mode-picker");
 const flow = document.getElementById("flow");
 const ytChrome = document.getElementById("yt-chrome");
 const sysChrome = document.getElementById("sys-chrome");
+const amChrome = document.getElementById("am-chrome");
 const imageUrlField = document.getElementById("image-url-field");
 const imageUrl = document.getElementById("image-url");
 const backBtn = document.getElementById("back-btn");
@@ -31,8 +32,12 @@ function selectMode(m) {
   flow.hidden = false;
   ytChrome.hidden = m !== "youtube";
   sysChrome.hidden = m !== "system";
+  amChrome.hidden = m !== "applemusic";
   imageUrlField.hidden = m !== "system";
-  (m === "youtube" ? yturl : song).focus();
+  // Apple Music mode has its own controls; hide the manual capture UI.
+  flow.classList.toggle("mode-am", m === "applemusic");
+  if (m === "youtube") yturl.focus();
+  else if (m === "system") song.focus();
 }
 
 function goBack() {

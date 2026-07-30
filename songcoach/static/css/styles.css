@@ -553,3 +553,18 @@ a { color: inherit; }
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
 }
 .io-toast--error { background: #8a2d2d; }
+
+/* Apple Music mode */
+#flow.mode-am .meta,
+#flow.mode-am .tape__status,
+#flow.mode-am #capture-btn,
+#flow.mode-am #form-error { display: none; }
+
+#am-chrome { display: none; }
+#flow.mode-am #am-chrome { display: block; }
+
+.am-status { display: flex; align-items: center; gap: 0.6rem; margin: 0.8rem 0; }
+.am-captured { list-style: none; margin: 0.6rem 0 1rem; padding: 0; max-height: 180px; overflow-y: auto; }
+.am-captured li { padding: 0.35rem 0; border-bottom: 1px solid rgba(0,0,0,0.08); font-size: 0.95rem; }
+.am-captured li:last-child { border-bottom: none; }
+#am-stop { margin-top: 0.6rem; }
