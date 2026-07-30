@@ -56,6 +56,11 @@ SoundCloud, a local file). Enter a song name (and, optionally, an artist and a
 cover-image URL), start the capture **before** the audio begins, play it, and
 stop when it's done.
 
+**♫ Apple Music mode** — hit **Start Apple Music mode**, then play a song or
+playlist in Apple Music. SongCoach captures each song automatically, pauses when
+you pause, and queues every finished song for stems — song after song — until you
+click **Stop**. (First use asks macOS for permission to read Apple Music.)
+
 Either way, Demucs runs for a minute or two, then the player opens. In the
 player:
 
@@ -219,6 +224,7 @@ Legend: ✅ done · ⬜ not started
 - ✅ Packaged as a signed & notarized macOS `.app`
 - ✅ Test suite (pipeline, rebuild, retry API, thumbnails)
 - ✅ Export / import your library as a `.zip` (move it between Macs)
+- ✅ Apple Music mode — auto-capture a playlist song-by-song into the stem queue
 - ⬜ Delete/cleanup recordings from the library
 - ⬜ Metronome / count-in overlay
 - ⬜ Universal2 / Intel build; a lighter separation engine to shrink the download

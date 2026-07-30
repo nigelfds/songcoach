@@ -115,6 +115,7 @@ a { color: inherit; }
 .mode-card:hover .mode-card__screen { color: var(--ink); }
 .glyph { display: block; }
 .glyph--screen { width: 42px; height: 30px; }
+.glyph--am { width: 32px; height: 32px; }
 .mode-card__title { font-family: var(--font-display); font-weight: 800; font-size: 1.18rem; line-height: 1.12; }
 .mode-card__sub { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .04em; color: var(--ink-dim); line-height: 1.35; }
 
@@ -553,3 +554,26 @@ a { color: inherit; }
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
 }
 .io-toast--error { background: #8a2d2d; }
+
+/* Apple Music mode */
+#flow.mode-am .meta,
+#flow.mode-am .tape__status,
+#flow.mode-am #capture-btn,
+#flow.mode-am #form-error { display: none; }
+
+#am-chrome { display: none; }
+#flow.mode-am #am-chrome { display: block; }
+
+.am-status { display: flex; align-items: center; gap: 0.6rem; margin: 0.8rem 0; }
+.am-captured { list-style: none; margin: 0.6rem 0 1rem; padding: 0; max-height: 180px; overflow-y: auto; }
+.am-captured li { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+  padding: 0.35rem 0; border-bottom: 1px solid rgba(0,0,0,0.08); font-size: 0.95rem; }
+.am-captured li:last-child { border-bottom: none; }
+.am-song { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.am-song-status { flex: none; font-size: 0.78rem; letter-spacing: .02em; text-transform: uppercase;
+  color: var(--ink-dim); }
+.am-song-status[data-status="done"] { color: #1f6f43; }
+.am-song-status[data-status="failed"] { color: #8a2d2d; }
+.am-song-status[data-status="separating"],
+.am-song-status[data-status="uploading"] { color: var(--amber); }
+#am-stop { margin-top: 0.6rem; }

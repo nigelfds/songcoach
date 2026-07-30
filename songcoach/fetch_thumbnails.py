@@ -95,6 +95,33 @@ def store_image_from_url_async(job_id: str, image_url: str) -> None:
     threading.Thread(target=store_image_from_url, args=(job_id, image_url), daemon=True).start()
 
 
+def store_image_from_file(job_id: str, src_path: "Path") -> bool:
+    """Store a local image file as the job's thumbnail (best-effort, size-guarded).
+
+    Returns True if it stored the image. Used for Apple Music cover art exported
+    by osascript. Writes only the image file (not the sidecar), like
+    store_image_from_url.
+    """
+    src = Path(src_path)
+    try:
+        if not src.is_file():
+            return False
+        size = src.stat().st_size
+        if size == 0 or size > _MAX_IMAGE_BYTES:
+            if size > _MAX_IMAGE_BYTES:
+                log.warning("Artwork too large (%d bytes) for %s", size, job_id)
+            return False
+        from .metadata import thumbnail_path
+        dest = thumbnail_path(job_id)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(src.read_bytes())
+        log.info("Stored artwork thumbnail for %s (%d KB)", job_id, size // 1024)
+        return True
+    except OSError:
+        log.warning("Could not store artwork for %s", job_id, exc_info=True)
+        return False
+
+
 def _note_in_meta(dir_: Path, filename: str) -> None:
     meta = dir_ / META_FILENAME
     if not meta.exists():

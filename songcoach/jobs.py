@@ -1,19 +1,18 @@
-"""Run the separation pipeline for a job in a background thread.
+"""Dispatch the separation pipeline for a job.
 
-Single-user local app: no queue. The request returns immediately and the slow
-Demucs step runs in a daemon thread; the UI polls the job's status.
+Single-user local app: captures enqueue onto a single-worker serial queue
+(see stem_queue) so back-to-back songs stem one at a time.
 """
 from __future__ import annotations
 
 import logging
-import threading
 
-from .pipeline.process import process_capture
+from . import stem_queue
 
 log = logging.getLogger("songcoach.jobs")
 
 
 def enqueue_processing(job_id: str) -> None:
-    """Separate a captured recording into stems, off the request thread."""
-    log.info("Running process_capture(%s) in background thread", job_id)
-    threading.Thread(target=process_capture, args=(job_id,), daemon=True).start()
+    """Queue a captured recording for separation, off the request thread."""
+    log.info("Enqueuing separation for %s", job_id)
+    stem_queue.enqueue(job_id)

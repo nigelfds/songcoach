@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 
 from .. import archive, fetch_thumbnails, jobs, metadata, recording, youtube
+from ..apple_music import service as apple_music_service
 from ..db import get_session
 from ..models import Job, JobStatus
 from ..pipeline.recorder import RecorderError, capture_dir
@@ -235,3 +236,21 @@ def import_data(file: UploadFile):
     finally:
         os.unlink(tmp)
     return {"added": result.added, "updated": result.updated}
+
+
+@router.post("/apple-music/start")
+def apple_music_start():
+    try:
+        return apple_music_service.start_mode()
+    except apple_music_service.ModeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.post("/apple-music/stop")
+def apple_music_stop():
+    return apple_music_service.stop_mode()
+
+
+@router.get("/apple-music/status")
+def apple_music_status():
+    return apple_music_service.status()

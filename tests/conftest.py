@@ -13,6 +13,17 @@ from songcoach.config import settings
 from songcoach.db import Base, SessionLocal, engine, init_db
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _schema():
+    """Ensure tables exist before any test touches SessionLocal directly.
+
+    Idempotent (CREATE TABLE IF NOT EXISTS semantics via create_all), so it
+    doesn't conflict with the `db` fixture's drop_all/recreate for tests that
+    need a guaranteed-empty table.
+    """
+    init_db()
+
+
 @pytest.fixture
 def storage_dir(tmp_path, monkeypatch):
     """A per-test data dir; functions read settings.local_storage_dir dynamically."""

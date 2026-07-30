@@ -38,6 +38,14 @@
           <span class="mode-card__title">Record from system audio</span>
           <span class="mode-card__sub">Any app · manual start &amp; stop</span>
         </button>
+
+        <button type="button" class="mode-card" data-mode="applemusic">
+          <span class="mode-card__screen">
+            <svg viewBox="0 0 24 24" class="glyph glyph--am" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M14 7.5l-4 1v6.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8.4" cy="15" r="2" fill="currentColor"/><path d="M14 8.5V12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </span>
+          <span class="mode-card__title">Apple Music</span>
+          <span class="mode-card__sub">Auto-capture song after song</span>
+        </button>
       </div>
     </div>
 
@@ -71,6 +79,25 @@
           <svg viewBox="0 0 26 24" class="glyph"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M17 9.5a4 4 0 010 5M19.5 7.5a7 7 0 010 9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
         </span>
         <p class="tape__hint">Capture anything playing on your Mac — Apple Music, Spotify, SoundCloud, a file. You start and stop the capture yourself. <b>Start the capture before the audio begins</b>, then stop it when the song ends.</p>
+      </div>
+
+      <!-- Apple Music chrome -->
+      <div id="am-chrome" hidden>
+        <span class="tape__label">Apple Music mode</span>
+        <p class="tape__hint">Play a song or playlist in Apple Music — SongCoach captures each song, pausing with the music, and queues every finished song for stems. It keeps going until you hit Stop.</p>
+        <p id="am-perm" class="jack__error" role="alert" hidden>
+          SongCoach needs permission to read Apple Music. Grant it in System Settings → Privacy &amp; Security → Automation, then try again.
+        </p>
+        <div class="am-status">
+          <span id="am-led" class="rec-led" data-on="false"></span>
+          <span id="am-state" class="tape__state">Not started</span>
+        </div>
+        <ul id="am-captured" class="am-captured"></ul>
+        <button id="am-start" type="button" class="btn-rec" data-recording="false">
+          <span class="btn-rec__icon"></span>
+          <span class="btn-rec__label">START APPLE MUSIC MODE</span>
+        </button>
+        <button id="am-stop" type="button" class="chip chip--ghost" hidden>Stop</button>
       </div>
 
       <!-- Shared details -->
@@ -148,4 +175,4 @@
   <div id="io-toast" class="io-toast" role="status" hidden></div>
 </main>
 {% endblock %}
-{% block scripts %}<script src="/static/js/app.js"></script><script src="/static/js/library.js"></script>{% endblock %}
+{% block scripts %}<script src="/static/js/app.js"></script><script src="/static/js/library.js"></script><script src="/static/js/apple-music.js"></script>{% endblock %}
