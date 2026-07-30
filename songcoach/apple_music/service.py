@@ -26,7 +26,11 @@ def start_mode() -> dict:
         session = AppleMusicSession()
         watcher = MusicWatcher(on_state=session.on_state)
         session.start()
-        watcher.start()
+        try:
+            watcher.start()
+        except Exception:
+            session.stop()   # clears the recording guard
+            raise
         _session, _watcher = session, watcher
         return _status_locked()
 

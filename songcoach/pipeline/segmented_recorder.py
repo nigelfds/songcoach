@@ -19,6 +19,12 @@ from .recorder import RecorderError, RecordingResult
 log = logging.getLogger("songcoach.segmented_recorder")
 
 
+def _ffmpeg_concat_line(path: Path) -> str:
+    # concat demuxer: single-quote the path, escaping embedded single quotes.
+    escaped = str(path.resolve()).replace("'", "'\\''")
+    return f"file '{escaped}'\n"
+
+
 class SegmentedRecorder:
     def __init__(self, out_dir: Path, *, max_seconds: int | None = None):
         self.out_dir = Path(out_dir)
@@ -78,7 +84,7 @@ class SegmentedRecorder:
 
     def _concat(self, segs: list[Path], dest: Path) -> None:
         listfile = self.seg_dir / "concat.txt"
-        listfile.write_text("".join(f"file '{p.resolve()}'\n" for p in segs), encoding="utf-8")
+        listfile.write_text("".join(_ffmpeg_concat_line(p) for p in segs), encoding="utf-8")
         base = [settings.ffmpeg_bin, "-y", "-f", "concat", "-safe", "0", "-i", str(listfile)]
         try:
             subprocess.run(base + ["-c", "copy", str(dest)], check=True, capture_output=True, text=True)

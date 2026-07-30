@@ -23,3 +23,12 @@ def test_store_image_from_file_skips_oversized(storage_dir, tmp_path):
     big.write_bytes(b"x" * (fetch_thumbnails._MAX_IMAGE_BYTES + 1))
     assert fetch_thumbnails.store_image_from_file("job3", big) is False
     assert not metadata.thumbnail_path("job3").exists()
+
+
+def test_fetch_and_store_bails_when_capture_dir_missing(storage_dir, monkeypatch):
+    from songcoach.apple_music import artwork
+    called = []
+    monkeypatch.setattr(artwork, "_export_artwork", lambda p: called.append(p) or True)
+    # capture_dir for this job never created → must bail before exporting.
+    artwork.fetch_and_store("ghostjob")
+    assert called == []

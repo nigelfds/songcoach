@@ -128,3 +128,10 @@ def test_concat_both_paths_fail_raises_recordererror(fake_recorder, monkeypatch,
     rec.pause()
     with pytest.raises(RecorderError):
         rec.finish()
+
+
+def test_ffmpeg_concat_line_escapes_single_quotes(tmp_path):
+    from songcoach.pipeline.segmented_recorder import _ffmpeg_concat_line
+    line = _ffmpeg_concat_line(tmp_path / "O'Brien" / "seg.m4a")
+    assert line.startswith("file '") and line.endswith("'\n")
+    assert "'\\''" in line          # the apostrophe is escaped

@@ -17,7 +17,7 @@ from ..db import SessionLocal
 from ..models import Job, JobStatus
 from ..pipeline.recorder import RecorderError, capture_dir
 from ..pipeline.segmented_recorder import SegmentedRecorder
-from ..apple_music import artwork
+from . import artwork
 from .watcher import MusicState
 
 log = logging.getLogger("songcoach.apple_music.session")

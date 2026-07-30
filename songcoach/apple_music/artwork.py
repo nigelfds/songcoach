@@ -45,11 +45,24 @@ def _export_artwork(out_file) -> bool:
 
 
 def fetch_and_store(job_id: str) -> None:
-    out_file = capture_dir(job_id) / "artwork.dat"
-    out_file.parent.mkdir(parents=True, exist_ok=True)
-    if _export_artwork(out_file):
-        fetch_thumbnails.store_image_from_file(job_id, out_file)
-    out_file.unlink(missing_ok=True)
+    cap_dir = capture_dir(job_id)
+    if not cap_dir.exists():
+        return  # song finalized/discarded before artwork ran
+    out_file = cap_dir / "artwork.dat"
+    try:
+        if not _export_artwork(out_file):
+            return
+        from ..db import SessionLocal
+        from ..models import Job
+        session = SessionLocal()
+        try:
+            job_exists = session.get(Job, job_id) is not None
+        finally:
+            session.close()
+        if job_exists:
+            fetch_thumbnails.store_image_from_file(job_id, out_file)
+    finally:
+        out_file.unlink(missing_ok=True)
 
 
 def fetch_artwork_async(job_id: str) -> None:

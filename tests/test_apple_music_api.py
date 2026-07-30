@@ -46,3 +46,18 @@ def test_start_409_when_manual_recording(client, monkeypatch):
     from songcoach import recording
     monkeypatch.setattr(recording, "is_recording", lambda: True)
     assert client.post("/api/apple-music/start").status_code == 409
+
+
+def test_start_mode_clears_guard_if_watcher_start_fails(client, monkeypatch):
+    import pytest
+    from songcoach.apple_music import service
+    from songcoach import recording
+
+    class BoomWatcher:
+        def __init__(self, on_state, *, interval=1.0): pass
+        def start(self): raise RuntimeError("boom")
+        def stop(self): pass
+    monkeypatch.setattr(service, "MusicWatcher", BoomWatcher)
+    with pytest.raises(RuntimeError):
+        service.start_mode()
+    assert recording.apple_music_active() is False
