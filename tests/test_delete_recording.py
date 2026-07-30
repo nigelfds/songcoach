@@ -94,3 +94,20 @@ def test_deleted_job_player_page_404(client, storage_dir):
     jid = _seed_job("pl1")
     assert client.delete(f"/api/jobs/{jid}").status_code == 204
     assert client.get(f"/jobs/{jid}").status_code == 404
+
+
+def test_delete_failed_job_not_resurrected(client, storage_dir):
+    # A failed job keeps its capture on disk (that's how retry works); deleting it
+    # must NOT be re-added by rebuild()'s orphan-capture scan.
+    jid = _seed_job("f1", status=JobStatus.failed)
+    cap_dir = storage_dir / "recordings" / jid
+    cap_dir.mkdir(parents=True)
+    (cap_dir / "capture.m4a").write_bytes(b"x")
+    assert client.delete(f"/api/jobs/{jid}").status_code == 204
+    s = SessionLocal()
+    try:
+        assert s.get(Job, jid) is None      # not resurrected
+    finally:
+        s.close()
+    assert _sidecar(jid)["deleted"] is True
+    assert (cap_dir / "capture.m4a").exists()   # files still untouched (soft delete)
