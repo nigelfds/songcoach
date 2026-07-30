@@ -115,6 +115,7 @@ a { color: inherit; }
 .mode-card:hover .mode-card__screen { color: var(--ink); }
 .glyph { display: block; }
 .glyph--screen { width: 42px; height: 30px; }
+.glyph--am { width: 32px; height: 32px; }
 .mode-card__title { font-family: var(--font-display); font-weight: 800; font-size: 1.18rem; line-height: 1.12; }
 .mode-card__sub { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .04em; color: var(--ink-dim); line-height: 1.35; }
 
