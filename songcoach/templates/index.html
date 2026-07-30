@@ -135,9 +135,14 @@
       </div>
     </div>
     {% if jobs %}
+    <div class="library__search">
+      <input id="lib-search" type="search" class="meta__in"
+             placeholder="Search by song or artist…" autocomplete="off"
+             spellcheck="false" aria-label="Search recordings" />
+    </div>
     <ul class="rec-list">
       {% for job in jobs %}
-      <li>
+      <li data-search="{{ ((job.title or 'Untitled') ~ ' ' ~ (job.artist or '')) | lower }}">
         <a class="rec" href="/jobs/{{ job.id }}">
           <div class="rec__thumb">
             {% if thumbs.get(job.id) %}
@@ -163,6 +168,8 @@
       </li>
       {% endfor %}
     </ul>
+    <nav id="lib-pager" class="pager" aria-label="Library pages" hidden></nav>
+    <p id="lib-noresults" class="library__empty" hidden></p>
     {% else %}
     <p class="library__empty">No recordings yet. Capture your first one above.</p>
     {% endif %}
@@ -175,4 +182,4 @@
   <div id="io-toast" class="io-toast" role="status" hidden></div>
 </main>
 {% endblock %}
-{% block scripts %}<script src="/static/js/app.js"></script><script src="/static/js/library.js"></script><script src="/static/js/apple-music.js"></script>{% endblock %}
+{% block scripts %}<script src="/static/js/app.js"></script><script src="/static/js/library.js"></script><script src="/static/js/apple-music.js"></script><script src="/static/js/library-list.js"></script>{% endblock %}

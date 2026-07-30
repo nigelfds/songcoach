@@ -577,3 +577,17 @@ a { color: inherit; }
 .am-song-status[data-status="separating"],
 .am-song-status[data-status="uploading"] { color: var(--amber); }
 #am-stop { margin-top: 0.6rem; }
+
+/* Library search + pagination */
+.library__search { margin: .9rem 0 .1rem; }
+.library__search input { width: 100%; }
+
+.pager { display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  gap: .35rem; margin: 1rem 0 .1rem; }
+.pager__link { min-width: 2rem; text-align: center; padding: .3rem .55rem; border-radius: 8px;
+  font-size: .9rem; color: var(--ink-dim); text-decoration: none; border: 1px solid transparent; }
+a.pager__link:hover { color: var(--ink); border-color: var(--line-soft); }
+.pager__link--current { color: var(--ink); font-weight: 700; background: var(--bg);
+  border-color: var(--line-soft); }
+.pager__link--disabled { opacity: .4; }
+.pager__gap { color: var(--ink-dim); }
