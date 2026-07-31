@@ -5,6 +5,7 @@ const amState = document.getElementById("am-state");
 const amLed = document.getElementById("am-led");
 const amCaptured = document.getElementById("am-captured");
 const amPerm = document.getElementById("am-perm");
+const amRefresh = document.getElementById("am-refresh");
 const amBack = document.getElementById("back-btn");
 
 let amPollId = null;
@@ -35,6 +36,9 @@ function amRender(s) {
   amLed.dataset.on = active && s.phase !== "armed" ? "true" : "false";
   if (amBack) amBack.disabled = active;           // no leaving mid-session
   amPerm.hidden = !s.permission_error;
+  // Refresh only when the mode is off and songs were dispatched — a finished
+  // song won't appear in the library below until the page reloads.
+  if (amRefresh) amRefresh.hidden = active || captured.length === 0;
 
   let label;
   if (active) {
@@ -82,6 +86,11 @@ async function amPoll() {
 function amStartPolling() {
   if (!amPollId) amPollId = setInterval(amPoll, 1500);
 }
+
+// In-app "refresh" — the library below is server-rendered on load, so newly
+// stemmed songs only appear after a reload (there's no browser refresh in the
+// desktop app). Only offered when the mode is off (see amRender).
+amRefresh?.addEventListener("click", () => location.reload());
 
 amStart?.addEventListener("click", async () => {
   amStart.disabled = true;
