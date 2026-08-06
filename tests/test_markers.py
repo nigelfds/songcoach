@@ -54,6 +54,31 @@ def test_write_meta_preserves_markers(storage_dir):
     assert metadata.read_markers(jid) == [{"id": "x", "time": 1.0, "name": "A"}]
 
 
+def test_write_markers_preserves_deleted(storage_dir):
+    jid = _seed("rd1")
+    assert metadata.mark_deleted(jid) is True
+    metadata.write_markers(jid, [{"id": "x", "time": 1.0, "name": "A"}])
+    assert _sidecar(jid).get("deleted") is True          # write_markers kept the flag
+    assert metadata.read_markers(jid) == [{"id": "x", "time": 1.0, "name": "A"}]
+
+
+def test_mark_deleted_preserves_markers(storage_dir):
+    jid = _seed("rd2")
+    metadata.write_markers(jid, [{"id": "x", "time": 1.0, "name": "A"}])
+    assert metadata.mark_deleted(jid) is True
+    assert metadata.read_markers(jid) == [{"id": "x", "time": 1.0, "name": "A"}]  # kept
+    assert _sidecar(jid).get("deleted") is True
+
+
+def test_read_markers_ignores_non_list(storage_dir):
+    jid = _seed("rd3")
+    p = metadata.meta_path(jid)
+    data = json.loads(p.read_text(encoding="utf-8"))
+    data["markers"] = {"oops": 1}                        # malformed (not a list)
+    p.write_text(json.dumps(data), encoding="utf-8")
+    assert metadata.read_markers(jid) == []
+
+
 # --- endpoints -------------------------------------------------------------
 
 @pytest.fixture

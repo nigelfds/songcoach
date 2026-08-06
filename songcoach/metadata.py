@@ -79,9 +79,8 @@ def to_dict(job: Job) -> dict:
 def write_meta(job: Job) -> Path:
     """Write the job's sidecar atomically into its output directory.
 
-    A ``deleted`` flag set out-of-band by ``mark_deleted`` is preserved, so a
-    concurrent/late writer (e.g. an async thumbnail refresh) can never resurrect
-    a soft-deleted recording by rewriting its sidecar.
+    A ``deleted`` flag or ``markers`` array set out-of-band is preserved, so a
+    concurrent/late writer (e.g. an async thumbnail refresh) can never wipe them.
     """
     path = meta_path(job.id)
     data = to_dict(job)
@@ -118,14 +117,15 @@ def mark_deleted(job_id: str) -> bool:
 
 
 def read_markers(job_id: str) -> list:
-    """The job's markers from its sidecar (``[]`` if none / unreadable)."""
+    """The job's markers from its sidecar (``[]`` if none / unreadable / malformed)."""
     path = meta_path(job_id)
     if not path.exists():
         return []
     try:
-        return read_meta(path).get("markers") or []
+        markers = read_meta(path).get("markers")
     except (ValueError, OSError):
         return []
+    return markers if isinstance(markers, list) else []
 
 
 def write_markers(job_id: str, markers: list) -> bool:
