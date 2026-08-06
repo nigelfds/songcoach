@@ -9,7 +9,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
@@ -65,6 +65,16 @@ class JobOut(BaseModel):
     error: str | None
     resumable: bool
     tracks: list[TrackOut]
+
+
+class MarkerIn(BaseModel):
+    id: str = Field(max_length=64)
+    time: float = Field(ge=0)
+    name: str = Field(default="", max_length=120)
+
+
+class MarkersIn(BaseModel):
+    markers: list[MarkerIn] = Field(max_length=200)
 
 
 def _serialize(job: Job) -> JobOut:
@@ -226,6 +236,23 @@ def retry_job(job_id: str, session: Session = Depends(get_session)):
     session.commit()
     jobs.enqueue_processing(job_id)
     return _serialize(job)
+
+
+@router.get("/jobs/{job_id}/markers")
+def get_markers(job_id: str):
+    if not metadata.meta_path(job_id).exists():
+        raise HTTPException(status_code=404, detail="Recording not found")
+    return {"markers": metadata.read_markers(job_id)}
+
+
+@router.put("/jobs/{job_id}/markers")
+def put_markers(job_id: str, payload: MarkersIn):
+    markers = []
+    for m in payload.markers:
+        markers.append({"id": m.id, "time": m.time, "name": m.name.strip()})
+    if not metadata.write_markers(job_id, markers):
+        raise HTTPException(status_code=404, detail="Recording not found")
+    return {"markers": markers}
 
 
 @router.get("/export")
