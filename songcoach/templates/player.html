@@ -64,6 +64,7 @@
     <div class="deck">
       <div class="strips" id="strips">
         <div id="playhead" class="playhead" hidden></div>
+        <div id="marker-layer" class="marker-layer"></div>
         <!-- channel strips injected here -->
       </div>
       <div class="timeline-wrap"><div id="timeline" class="timeline"></div></div>
@@ -117,6 +118,25 @@
       </dl>
       <div class="edit-actions">
         <button id="help-close" class="btn-primary" type="button">GOT IT</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MARKER -->
+  <div id="marker-overlay" class="edit-overlay" hidden>
+    <div class="edit-card" role="dialog" aria-modal="true" aria-label="Marker">
+      <div class="rack-screws"><i></i><i></i><i></i><i></i></div>
+      <span class="tape__label">Marker · <span id="marker-time">0:00.0</span></span>
+      <div class="meta">
+        <input id="marker-name" class="meta__in" type="text" maxlength="120"
+               autocomplete="off" spellcheck="false"
+               placeholder="Marker name (e.g. Guitar solo)" />
+      </div>
+      <p class="jack__error" id="marker-error" role="alert"></p>
+      <div class="edit-actions">
+        <button id="marker-delete" class="chip chip--ghost" type="button">DELETE</button>
+        <button id="marker-cancel" class="chip chip--ghost" type="button">CANCEL</button>
+        <button id="marker-save" class="btn-primary" type="button">SAVE</button>
       </div>
     </div>
   </div>

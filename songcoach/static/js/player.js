@@ -129,6 +129,9 @@ const sectionEl = document.getElementById("section");
 const playheadEl = document.getElementById("playhead");
 const nowStatus = document.getElementById("now-status");
 let phGeom = null;        // cached geometry mapping time -> the shared playhead's x
+let markers = [];               // [{id, time, name}]
+let editingMarkerId = null;
+let editingIsNew = false;
 
 function leader() { return channels[leaderIndex]; }
 function duration() { return leader() ? leader().ws.getDuration() : 0; }
@@ -296,6 +299,7 @@ function onAllReady() {
   channels.forEach((c) => c.ws.setPlaybackRate(currentRate(), true));
   applyGains();     // sets default volumes + updates strips
   layoutPlayhead();
+  loadMarkers();
 }
 
 // ---------------------------------------------------------------------------
@@ -376,7 +380,7 @@ function updatePlayhead(t) {
   playheadEl.style.left = x + "px";
 }
 
-window.addEventListener("resize", () => { if (phGeom) layoutPlayhead(); });
+window.addEventListener("resize", () => { if (phGeom) { layoutPlayhead(); layoutMarkers(); } });
 
 // Keep the non-leader stems locked to the leader, but only correct real drift
 // so we don't reset currentTime (and glitch audio) on every frame.
@@ -530,6 +534,7 @@ function currentRate() { return parseFloat(speedSel.value); }
 
 document.addEventListener("keydown", (e) => {
   // While a dialog is open, only Escape matters.
+  if (!markerOverlay.hidden) { if (e.key === "Escape") closeMarker(); return; }
   if (!overlay.hidden) { if (e.key === "Escape") closeEditor(); return; }
   if (!helpOverlay.hidden) { if (e.key === "Escape") closeHelp(); return; }
   if (playerEl.hidden) return;
@@ -564,6 +569,120 @@ document.addEventListener("keydown", (e) => {
       break;
   }
 });
+
+// ---------------------------------------------------------------------------
+// 6b. Waveform markers
+// ---------------------------------------------------------------------------
+const markerLayer = document.getElementById("marker-layer");
+const markerOverlay = document.getElementById("marker-overlay");
+const markerName = document.getElementById("marker-name");
+const markerTimeEl = document.getElementById("marker-time");
+const markerError = document.getElementById("marker-error");
+
+function markerX(t) {
+  const dur = duration() || 1;
+  return phGeom.left + (Math.min(Math.max(0, t), dur) / dur) * phGeom.width;
+}
+
+function renderMarkers() {
+  if (!markerLayer) return;
+  markerLayer.replaceChildren();
+  if (!phGeom) return;
+  markers.forEach((m) => {
+    const el = document.createElement("div");
+    el.className = "marker";
+    el.dataset.id = m.id;
+    el.style.left = markerX(m.time) + "px";
+    el.style.top = phGeom.top + "px";
+    el.style.height = phGeom.height + "px";
+    const badge = document.createElement("button");
+    badge.type = "button";
+    badge.className = "marker__i";
+    badge.textContent = "i";
+    badge.title = m.name || "Marker";
+    badge.setAttribute("aria-label", "Marker: " + (m.name || "unnamed"));
+    badge.addEventListener("click", (e) => { e.stopPropagation(); openMarker(m, false); });
+    el.appendChild(badge);
+    markerLayer.appendChild(el);
+  });
+}
+
+function layoutMarkers() { if (phGeom) renderMarkers(); }
+
+async function loadMarkers() {
+  try {
+    const res = await fetch(`/api/jobs/${jobId}/markers`);
+    if (res.ok) { markers = (await res.json()).markers || []; renderMarkers(); }
+  } catch {}
+}
+
+async function persistMarkers() {
+  try {
+    const res = await fetch(`/api/jobs/${jobId}/markers`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ markers }),
+    });
+    if (res.ok) { markers = (await res.json()).markers || markers; return true; }
+  } catch {}
+  return false;
+}
+
+function openMarker(m, isNew) {
+  editingMarkerId = m.id;
+  editingIsNew = isNew;
+  markerTimeEl.textContent = fmt1(m.time);
+  markerName.value = m.name || "";
+  markerError.textContent = "";
+  markerOverlay.hidden = false;
+  markerName.focus();
+}
+
+function closeMarker() {
+  // Cancelling a brand-new, never-saved marker discards it.
+  if (editingIsNew) {
+    markers = markers.filter((x) => x.id !== editingMarkerId);
+    renderMarkers();
+  }
+  markerOverlay.hidden = true;
+  editingMarkerId = null;
+}
+
+async function saveMarker() {
+  const m = markers.find((x) => x.id === editingMarkerId);
+  if (!m) { markerOverlay.hidden = true; editingMarkerId = null; return; }
+  const prev = m.name;
+  m.name = markerName.value.trim();
+  if (!(await persistMarkers())) {
+    m.name = prev;
+    markerError.textContent = "Couldn't save. Try again.";
+    return;
+  }
+  editingIsNew = false;
+  renderMarkers();
+  markerOverlay.hidden = true;
+  editingMarkerId = null;
+}
+
+async function deleteMarker() {
+  const keep = markers.filter((x) => x.id !== editingMarkerId);
+  const prev = markers;
+  markers = keep;
+  if (!(await persistMarkers())) {
+    markers = prev;
+    markerError.textContent = "Couldn't delete. Try again.";
+    return;
+  }
+  editingIsNew = false;
+  renderMarkers();
+  markerOverlay.hidden = true;
+  editingMarkerId = null;
+}
+
+document.getElementById("marker-save").addEventListener("click", saveMarker);
+document.getElementById("marker-cancel").addEventListener("click", closeMarker);
+document.getElementById("marker-delete").addEventListener("click", deleteMarker);
+markerOverlay.addEventListener("click", (e) => { if (e.target === markerOverlay) closeMarker(); });
 
 // ---------------------------------------------------------------------------
 // 7. Edit metadata
