@@ -87,8 +87,10 @@ def write_meta(job: Job) -> Path:
     data = to_dict(job)
     if path.exists():
         try:
-            if read_meta(path).get("deleted"):
-                data["deleted"] = True
+            existing = read_meta(path)
+            for key in ("deleted", "markers"):
+                if key in existing:
+                    data[key] = existing[key]
         except (ValueError, OSError):
             pass
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -112,6 +114,33 @@ def mark_deleted(job_id: str) -> bool:
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
     tmp.replace(path)  # atomic swap on POSIX
+    return True
+
+
+def read_markers(job_id: str) -> list:
+    """The job's markers from its sidecar (``[]`` if none / unreadable)."""
+    path = meta_path(job_id)
+    if not path.exists():
+        return []
+    try:
+        return read_meta(path).get("markers") or []
+    except (ValueError, OSError):
+        return []
+
+
+def write_markers(job_id: str, markers: list) -> bool:
+    """Store the markers array in the sidecar, atomically, preserving other keys.
+
+    Returns ``False`` if there is no sidecar.
+    """
+    path = meta_path(job_id)
+    if not path.exists():
+        return False
+    data = read_meta(path)
+    data["markers"] = markers
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    tmp.replace(path)
     return True
 
 
