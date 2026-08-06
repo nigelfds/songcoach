@@ -608,3 +608,10 @@ a.pager__link:hover { color: var(--ink); border-color: var(--line-soft); }
   cursor: pointer; pointer-events: auto;
 }
 .marker__i:hover { filter: brightness(1.08); }
+.marker-capture { position: absolute; z-index: 5; cursor: crosshair; }
+.marker-tip {
+  position: absolute; z-index: 6; transform: translate(-50%, -100%);
+  padding: 2px 6px; border-radius: 6px; font-size: 11px; white-space: nowrap;
+  background: #1a1a1d; color: #fff; pointer-events: none;
+}
+.icon-btn.is-on { border-color: var(--amber); color: var(--amber); }

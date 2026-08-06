@@ -132,6 +132,7 @@ let phGeom = null;        // cached geometry mapping time -> the shared playhead
 let markers = [];               // [{id, time, name}]
 let editingMarkerId = null;
 let editingIsNew = false;
+let markerMode = false;
 
 function leader() { return channels[leaderIndex]; }
 function duration() { return leader() ? leader().ws.getDuration() : 0; }
@@ -607,7 +608,7 @@ function renderMarkers() {
   });
 }
 
-function layoutMarkers() { if (phGeom) renderMarkers(); }
+function layoutMarkers() { if (phGeom) { renderMarkers(); positionCapture(); } }
 
 async function loadMarkers() {
   try {
@@ -683,6 +684,56 @@ document.getElementById("marker-save").addEventListener("click", saveMarker);
 document.getElementById("marker-cancel").addEventListener("click", closeMarker);
 document.getElementById("marker-delete").addEventListener("click", deleteMarker);
 markerOverlay.addEventListener("click", (e) => { if (e.target === markerOverlay) closeMarker(); });
+
+const markerOpenBtn = document.getElementById("marker-open");
+const markerCapture = document.getElementById("marker-capture");
+const markerTip = document.getElementById("marker-tip");
+
+function positionCapture() {
+  if (!phGeom || !markerMode) return;
+  markerCapture.style.left = phGeom.left + "px";
+  markerCapture.style.top = phGeom.top + "px";
+  markerCapture.style.width = phGeom.width + "px";
+  markerCapture.style.height = phGeom.height + "px";
+}
+
+function setMarkerMode(on) {
+  markerMode = on;
+  markerOpenBtn.classList.toggle("is-on", on);
+  markerOpenBtn.setAttribute("aria-pressed", String(on));
+  markerCapture.hidden = !on;
+  if (on) positionCapture();
+  else markerTip.hidden = true;
+}
+
+function timeAtClientX(clientX) {
+  const base = document.getElementById("strips").getBoundingClientRect();
+  const x = clientX - base.left - phGeom.left;
+  const dur = duration() || 1;
+  return Math.min(Math.max(0, (x / phGeom.width) * dur), dur);
+}
+
+markerOpenBtn.addEventListener("click", () => setMarkerMode(!markerMode));
+
+markerCapture.addEventListener("click", (e) => {
+  if (!phGeom) return;
+  const m = { id: crypto.randomUUID(), time: timeAtClientX(e.clientX), name: "" };
+  markers.push(m);
+  renderMarkers();
+  markerTip.hidden = true;
+  openMarker(m, true);
+});
+
+markerCapture.addEventListener("mousemove", (e) => {
+  if (!phGeom) return;
+  const base = document.getElementById("strips").getBoundingClientRect();
+  markerTip.textContent = fmt1(timeAtClientX(e.clientX));
+  markerTip.style.left = (e.clientX - base.left) + "px";
+  markerTip.style.top = (e.clientY - base.top - 10) + "px";
+  markerTip.hidden = false;
+});
+
+markerCapture.addEventListener("mouseleave", () => { markerTip.hidden = true; });
 
 // ---------------------------------------------------------------------------
 // 7. Edit metadata
