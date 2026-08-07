@@ -9,7 +9,7 @@ def test_enqueue_runs_serially_in_fifo_order(monkeypatch):
     concurrent = {"now": 0, "max": 0}
     lock = threading.Lock()
 
-    def fake_run(job_id):
+    def fake_run(job_id, task="process"):
         with lock:
             concurrent["now"] += 1
             concurrent["max"] = max(concurrent["max"], concurrent["now"])
@@ -31,7 +31,7 @@ def test_enqueue_runs_serially_in_fifo_order(monkeypatch):
 def test_worker_survives_a_failing_job(monkeypatch):
     seen = []
 
-    def fake_run(job_id):
+    def fake_run(job_id, task="process"):
         seen.append(job_id)
         if job_id == "boom":
             raise RuntimeError("kaboom")

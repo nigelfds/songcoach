@@ -29,9 +29,11 @@ class JobStatus(str, enum.Enum):
 
 
 class TrackKind(str, enum.Enum):
-    original = "original"      # the full song
-    drums = "drums"            # drums only
-    no_drums = "no_drums"      # song without drums
+    original = "original"                       # the full song
+    drums = "drums"                             # drums only
+    vocals = "vocals"                           # vocals only
+    no_drums_no_vocals = "no_drums_no_vocals"   # backing: bass + other
+    no_drums = "no_drums"                       # legacy: pre-reprocess play-along
 
 
 class Job(Base):
