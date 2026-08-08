@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 
-from .. import archive, fetch_thumbnails, jobs, metadata, recording, youtube
+from .. import archive, fetch_thumbnails, jobs, metadata, recording, stem_queue, youtube
 from ..rebuild import rebuild
 from ..apple_music import service as apple_music_service
 from ..db import get_session, SessionLocal
@@ -235,6 +235,25 @@ def retry_job(job_id: str, session: Session = Depends(get_session)):
     job.error = None
     session.commit()
     jobs.enqueue_processing(job_id)
+    return _serialize(job)
+
+
+@router.post("/jobs/{job_id}/reprocess", response_model=JobOut)
+def reprocess_job_endpoint(job_id: str, session: Session = Depends(get_session)):
+    """Re-separate a finished job into the current stem set (adds the vocals stem)."""
+    job = session.get(Job, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if recording.is_recording():
+        raise HTTPException(status_code=409, detail="Stop the current recording first.")
+    if job.status != JobStatus.done:
+        raise HTTPException(status_code=409, detail="Only finished recordings can be reprocessed.")
+    if not (metadata.job_dir(job_id) / "original.mp3").exists():
+        raise HTTPException(status_code=409, detail="Nothing to reprocess — the source audio is missing.")
+    job.status = JobStatus.separating
+    job.progress = 10
+    session.commit()
+    stem_queue.enqueue_reprocess(job_id)
     return _serialize(job)
 
 
