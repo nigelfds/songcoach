@@ -2,20 +2,21 @@
 
 **Isolate the drums. Loop the fill. Lock in the groove.**
 
-![SongCoach's player: the full song, drums, and no-drums stems as three synced, colour-coded waveforms with transport, A–B loop, and speed controls](assets/hero.png)
+![SongCoach's player: a song's stems as synced, colour-coded waveforms with a per-stem mixer, transport, A–B loop, and speed controls](assets/hero.png)
 
 SongCoach is a local macOS app for drummers. Play any song through your Mac — a
 YouTube tab, Spotify, Apple Music, a file — and SongCoach captures the audio and
 uses an AI source-separation model ([Demucs](https://github.com/adefossez/demucs))
-to split it into three stems:
+to split it into four stems:
 
-- **the full song**,
-- **drums only** — hear exactly what the drummer played, and
-- **the song without drums** — play along as if you're the drummer.
+- **the full song** (reference mix),
+- **drums only** — hear exactly what the drummer played,
+- **vocals only**, and
+- **backing** — bass, keys & the rest, with drums and vocals removed.
 
-Then it hands you a player with three synced waveforms, solo switching, A–B
-looping, and pitch-preserved slow-down, so you can drill any four bars until
-they're yours.
+Then it hands you a player with synced, colour-coded waveforms, a per-stem mixer,
+A–B looping, pitch-preserved slow-down, and **markers** you can drop to flag a
+fill or a solo — so you can drill any four bars until they're yours.
 
 Everything runs on your machine. No account, no cloud, no upload — your
 recordings never leave your Mac.
@@ -64,16 +65,20 @@ click **Stop**. (First use asks macOS for permission to read Apple Music.)
 Either way, Demucs runs for a minute or two, then the player opens. In the
 player:
 
-- three synced waveform rows — **full / drums / no-drums** — with **solo** to
-  pick what you hear,
+- synced waveform rows — **full song / drums / vocals / backing** — each with a
+  volume fader and an in-the-mix toggle (**REF** plays the untouched full mix),
 - **drag on any waveform** to set an **A–B loop**,
 - **0.5×–1×** slow-down that preserves pitch,
+- **markers** — click the flag icon, then click a waveform to drop a named marker
+  (a line across all stems with an "i" badge) that flags a fill, solo, or
+  transition; click the badge to rename or delete it,
 - keyboard shortcuts for play/pause, section in/out, and looping (see the **?**
   in the app).
 
-Your library lists every recording; click one to reopen its player. If a
-separation ever fails, the recording is kept and you can **retry** it without
-re-recording.
+Your **library** lists every recording — **search** by title/artist and page
+through it — and you can **delete** a recording from its player (a soft delete;
+the files on disk are never touched). If a separation ever fails, the recording
+is kept and you can **retry** it without re-recording.
 
 ### Move your library to another Mac
 
@@ -82,6 +87,14 @@ Mac, hit **Export** to download a `SongCoach-export-….zip`. Copy it over
 (AirDrop, USB, wherever), then on the new Mac hit **Import** and pick the zip —
 your recordings merge in (anything with the same ID is overwritten) and the
 library reloads. Nothing leaves your machines but the file you carry.
+
+### Add the vocals stem to older recordings
+
+Recordings made before the vocals stem existed show three rows. To upgrade one,
+open its player and hit the **reprocess** button (the circular-arrows icon) — it
+re-separates the song into the current four stems (your markers are kept). To
+bring the whole back catalogue up to speed at once, run
+`python -m songcoach.reprocess` (see [For developers](#for-developers)).
 
 ---
 
@@ -98,14 +111,16 @@ FastAPI app  ──start/stop capture──►  Recorder ────┤  Screen
    Player page  ◄── /media stem URLs ──┐                  ▼
                                        │   background thread: Demucs
                                        └── SQLite + local filesystem (./data)
-                                              → drums.mp3 · no_drums.mp3 · original.mp3
+                                              → drums · vocals · backing · original (.mp3)
 ```
 
 - **Capture** — `native/syscap.swift`, a small **ScreenCaptureKit** helper, taps
   the Mac's system-audio output to an `.m4a`. No BlackHole / virtual audio device
   needed.
-- **Separation** — **Demucs** (`htdemucs`, two-stem drums split) writes 256 kbps
-  mp3s, run **in-process** so it works inside the frozen app.
+- **Separation** — **Demucs** (`htdemucs`) splits into **drums**, **vocals**, and
+  **backing** (bass + other summed), written as 256 kbps mp3s **in-process** so it
+  works inside the frozen app. A single-worker queue runs one separation at a time,
+  so back-to-back captures never spawn concurrent Demucs runs.
 - **Web** — FastAPI + Jinja2 + Uvicorn. Single-user, so separation runs inline in
   a daemon thread and the UI polls status.
 - **Storage & DB** — stems live on the local filesystem; **SQLite** is a
@@ -144,7 +159,7 @@ app (TCC changes only apply after a restart). The error
 ### Tests
 
 ```bash
-python -m pytest        # pipeline sidecars, rebuild/orphan indexing, retry API, thumbnails
+python -m pytest        # separator, reprocess, markers, export/import, rebuild, delete, API endpoints
 ```
 
 ### Build a signed `.app` + DMG
@@ -174,9 +189,10 @@ its own folder with its stems and a JSON sidecar:
 data/jobs/<job-id>/
 ├── original.mp3
 ├── drums.mp3
-├── no_drums.mp3
-├── thumbnail.jpg     # optional
-└── meta.json         # schema_version, title, artist, url, duration, timestamps, tracks
+├── vocals.mp3
+├── no_drums_no_vocals.mp3    # backing (older recordings have no_drums.mp3 instead)
+├── thumbnail.jpg             # optional
+└── meta.json                 # schema_version, title, artist, duration, tracks, markers, deleted?
 ```
 
 `songcoach.db` is a rebuildable index over those folders. Delete it, move `data/`
@@ -188,7 +204,16 @@ python -m songcoach.rebuild --merge    # upsert without dropping existing rows
 ```
 
 The rebuild derives each recording's tracks from the mp3s actually present (files
-win over the sidecar) and also surfaces failed/orphaned captures as retryable.
+win over the sidecar) and also surfaces failed/orphaned captures as retryable. A
+`meta.json` marked `"deleted": true` is skipped (that's how the soft delete works).
+
+Re-separate the library into the current stem set (e.g. after the vocals stem was
+added) — runs one song at a time, sourcing from each recording's `original.mp3`:
+
+```bash
+python -m songcoach.reprocess          # every recording still missing a vocals stem
+python -m songcoach.reprocess --force   # re-separate all finished recordings
+```
 
 ### Project layout
 
@@ -218,14 +243,18 @@ songcoach/
 Legend: ✅ done · ⬜ not started
 
 - ✅ System-audio capture (ScreenCaptureKit) → Demucs stems → synced-waveform player
+- ✅ Four stems — full / drums / **vocals** / backing — with a per-stem mixer
 - ✅ A–B loop, solo, pitch-preserved slow-down
 - ✅ Two capture modes (in-app YouTube player + manual system audio)
-- ✅ Retry a failed/interrupted separation without re-recording
-- ✅ Packaged as a signed & notarized macOS `.app`
-- ✅ Test suite (pipeline, rebuild, retry API, thumbnails)
-- ✅ Export / import your library as a `.zip` (move it between Macs)
 - ✅ Apple Music mode — auto-capture a playlist song-by-song into the stem queue
-- ⬜ Delete/cleanup recordings from the library
+- ✅ **Waveform markers** — drop named markers across all stems, saved with the recording
+- ✅ **Reprocess** a recording (per-song button) or the whole library (`python -m songcoach.reprocess`)
+- ✅ Library **search + pagination**
+- ✅ **Delete** a recording (soft delete — the files on disk stay put)
+- ✅ Retry a failed/interrupted separation without re-recording
+- ✅ Export / import your library as a `.zip` (move it between Macs)
+- ✅ Packaged as a signed & notarized macOS `.app`
+- ✅ Test suite (separator, reprocess, markers, export/import, rebuild, delete, API)
 - ⬜ Metronome / count-in overlay
 - ⬜ Universal2 / Intel build; a lighter separation engine to shrink the download
 - ⬜ Auto-update (Sparkle)

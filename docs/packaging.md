@@ -51,8 +51,10 @@ Verified: dev paths resolve exactly as before; startup rebuild reindexes the rea
 **Done (code):**
 - **Demucs runs in-process** — `separator.py` no longer shells out to
   `sys.executable -m demucs` (impossible when frozen). It drives Demucs' Python
-  building blocks (`get_model` / `apply_model` / `save_audio`), mirroring
-  `--two-stems drums --mp3 --mp3-bitrate 256` exactly, and caches the model.
+  building blocks (`get_model` / `apply_model` / `save_audio`), keeping the
+  `drums` and `vocals` sources and summing the rest (bass + other) into a
+  `backing` stem — all as 256 kbps mp3 — and caches the model. (Originally a
+  two-stem drums split; the vocals + backing stems were added later.)
 - **Bundled-runtime setup** — `paths.setup_runtime()` (frozen only) prepends the
   resource dir to `PATH` (so subprocesses incl. Demucs' own ffmpeg call resolve
   the bundled binaries) and points `TORCH_HOME` at a writable Application Support
