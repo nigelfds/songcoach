@@ -6,12 +6,15 @@ const app = document.getElementById("app");
 const jobId = app.dataset.jobId;
 
 // color = played (progress), dim = unplayed waveform, tuned for the light UI.
-// NOTE: `original` == `drums` + `no_drums` (Demucs two-stem output), so the two
-// stems are the real mixer; `original` is a mutually-exclusive REF full mix.
+// NOTE: `original` == `drums` + `vocals` + `backing` (the full 4-stem mix); the
+// stems are the real mixer, `original` is a mutually-exclusive REF full mix.
+// `no_drums` is the LEGACY pre-reprocess stem (rendered only for un-reprocessed songs).
 const KINDS = [
-  { kind: "original", name: "FULL SONG", sub: "reference mix", color: "#6d45e6", dim: "#c9bcf5" },
-  { kind: "drums",    name: "DRUMS",     sub: "the kit, solo", color: "#e8760a", dim: "#f6cf9f" },
-  { kind: "no_drums", name: "NO DRUMS",  sub: "play along",    color: "#0e9e90", dim: "#a6ded7" },
+  { kind: "original",           name: "FULL SONG", sub: "reference mix",      color: "#6d45e6", dim: "#c9bcf5" },
+  { kind: "drums",              name: "DRUMS",     sub: "the kit, solo",      color: "#e8760a", dim: "#f6cf9f" },
+  { kind: "vocals",             name: "VOCALS",    sub: "the voice, solo",    color: "#d6336c", dim: "#f2b8cd" },
+  { kind: "no_drums_no_vocals", name: "BACKING",   sub: "bass, keys & the rest", color: "#0e9e90", dim: "#a6ded7" },
+  { kind: "no_drums",           name: "NO DRUMS",  sub: "play along",         color: "#0e9e90", dim: "#a6ded7" },
 ];
 
 const REGION_COLOR = "rgba(232,118,10,.16)";
@@ -832,6 +835,29 @@ document.getElementById("delete-open").addEventListener("click", async () => {
     alert(d.detail || "Could not delete this recording.");
   } catch (err) {
     alert("Could not delete this recording: " + err.message);
+  }
+});
+
+// Reprocess: re-separate with the newer 4-stem model to add a vocals stem
+document.getElementById("reprocess-open").addEventListener("click", async () => {
+  if (!confirm("Re-separate this song to add a vocals stem? This takes a minute.")) return;
+  try {
+    const res = await fetch(`/api/jobs/${jobId}/reprocess`, { method: "POST" });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      alert(d.detail || "Couldn't reprocess this recording.");
+      return;
+    }
+    document.getElementById("reprocess-overlay").hidden = false;
+    const timer = setInterval(async () => {
+      try {
+        const j = await (await fetch(`/api/jobs/${jobId}`)).json();
+        if (j.status === "done") { clearInterval(timer); location.reload(); }
+        else if (j.status === "failed") { clearInterval(timer); alert("Reprocess failed: " + (j.error || "")); location.reload(); }
+      } catch {}
+    }, 2000);
+  } catch (err) {
+    alert("Couldn't reprocess: " + err.message);
   }
 });
 

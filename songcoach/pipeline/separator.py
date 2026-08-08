@@ -1,11 +1,11 @@
-"""Split audio into drums / no-drums stems with Demucs, in-process.
+"""Split audio into drums / vocals / backing stems with Demucs, in-process.
 
 We drive Demucs through its Python building blocks (no ``python -m demucs``
 subprocess) so this works inside a frozen .app, where there is no separate
 interpreter to shell out to. The model is loaded once and reused.
 
-This mirrors the old ``--two-stems drums --mp3 --mp3-bitrate 256`` CLI: separate
-into the model's sources, keep ``drums``, and sum the rest into ``no_drums``.
+Separate into the model's sources, keep ``drums`` and ``vocals``, and sum
+the rest (bass, other) into ``backing``.
 """
 from __future__ import annotations
 
@@ -32,7 +32,8 @@ _model_lock = Lock()
 @dataclass
 class SeparationResult:
     drums_path: Path
-    no_drums_path: Path
+    vocals_path: Path
+    backing_path: Path
 
 
 def _load_model():
@@ -66,21 +67,25 @@ def separate(audio_path: Path, out_dir: Path) -> SeparationResult:
         )[0]
     sources = sources * ref.std() + ref.mean()
 
-    # Two stems: keep `drums`, sum every other source into `no_drums`.
+    # Three stems: keep `drums` and `vocals`; sum the rest (bass+other) into backing.
     by_name = dict(zip(model.sources, sources))
-    if "drums" not in by_name:
-        raise RuntimeError(f"model {settings.demucs_model} has no 'drums' source")
+    for required in ("drums", "vocals"):
+        if required not in by_name:
+            raise RuntimeError(f"model {settings.demucs_model} has no '{required}' source")
     drums = by_name["drums"]
-    no_drums = torch.zeros_like(drums)
+    vocals = by_name["vocals"]
+    backing = torch.zeros_like(drums)
     for name, tensor in by_name.items():
-        if name != "drums":
-            no_drums = no_drums + tensor
+        if name not in ("drums", "vocals"):
+            backing = backing + tensor
 
     drums_path = out_dir / "drums.mp3"
-    no_drums_path = out_dir / "no_drums.mp3"
+    vocals_path = out_dir / "vocals.mp3"
+    backing_path = out_dir / "no_drums_no_vocals.mp3"
     save_audio(drums, str(drums_path), samplerate=model.samplerate, bitrate=_MP3_BITRATE)
-    save_audio(no_drums, str(no_drums_path), samplerate=model.samplerate, bitrate=_MP3_BITRATE)
+    save_audio(vocals, str(vocals_path), samplerate=model.samplerate, bitrate=_MP3_BITRATE)
+    save_audio(backing, str(backing_path), samplerate=model.samplerate, bitrate=_MP3_BITRATE)
 
-    if not drums_path.exists() or not no_drums_path.exists():
+    if not (drums_path.exists() and vocals_path.exists() and backing_path.exists()):
         raise RuntimeError("Demucs produced no stem files")
-    return SeparationResult(drums_path=drums_path, no_drums_path=no_drums_path)
+    return SeparationResult(drums_path=drums_path, vocals_path=vocals_path, backing_path=backing_path)

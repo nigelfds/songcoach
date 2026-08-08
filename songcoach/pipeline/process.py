@@ -40,6 +40,19 @@ def _to_mp3(src: Path, dest: Path) -> None:
     )
 
 
+def _publish_stems(job: Job, storage, deliverables: dict) -> None:
+    """storage.save each {TrackKind: path} into jobs/<id>/<kind>.mp3 and append a Track.
+
+    Does NOT clear job.tracks — the caller clears first, then publishes.
+    """
+    for kind, path in deliverables.items():
+        key = f"jobs/{job.id}/{kind.value}.mp3"
+        storage.save(path, key)
+        job.tracks.append(
+            Track(kind=kind, storage_key=key, duration_seconds=job.duration_seconds)
+        )
+
+
 def process_capture(job_id: str) -> None:
     """Separate a captured recording into three stems → publish → mark done.
 
@@ -74,20 +87,15 @@ def process_capture(job_id: str) -> None:
             original_mp3 = work / "original.mp3"
             _to_mp3(source, original_mp3)
 
-            # 3. Upload the three deliverables
+            # 3. Upload the four deliverables
             _set(session, job, status=JobStatus.uploading, progress=80)
-            deliverables = {
+            job.tracks.clear()
+            _publish_stems(job, storage, {
                 TrackKind.original: original_mp3,
                 TrackKind.drums: sep.drums_path,
-                TrackKind.no_drums: sep.no_drums_path,
-            }
-            job.tracks.clear()
-            for kind, path in deliverables.items():
-                key = f"jobs/{job.id}/{kind.value}.mp3"
-                storage.save(path, key)
-                job.tracks.append(
-                    Track(kind=kind, storage_key=key, duration_seconds=job.duration_seconds)
-                )
+                TrackKind.vocals: sep.vocals_path,
+                TrackKind.no_drums_no_vocals: sep.backing_path,
+            })
 
             _set(session, job, status=JobStatus.done, progress=100, error=None)
             # Write the JSON sidecar — the durable source of truth alongside the
@@ -121,3 +129,47 @@ def _fail(session, job_id: str, message: str) -> None:
             metadata.write_meta(job)
         except OSError:
             log.warning("Could not write failure sidecar for %s", job_id, exc_info=True)
+
+
+def reprocess_job(job_id: str) -> None:
+    """Re-separate a finished job from its retained original.mp3 into the current
+    stem set (drums/vocals/backing), replacing the legacy no_drums stem. The
+    original track + markers are preserved."""
+    session = SessionLocal()
+    storage = get_storage()
+    pub_dir = metadata.job_dir(job_id)
+    original = pub_dir / "original.mp3"
+    try:
+        job = session.get(Job, job_id)
+        if job is None:
+            log.error("Reprocess: job %s not found", job_id)
+            return
+        if not original.exists():
+            raise RuntimeError(f"original audio missing at {original}")
+
+        _set(session, job, status=JobStatus.separating, progress=40)
+        with tempfile.TemporaryDirectory(prefix="songcoach-re-") as tmp:
+            sep = separator.separate(original, Path(tmp) / "separated")
+            _set(session, job, status=JobStatus.uploading, progress=80)
+            job.tracks.clear()
+            job.tracks.append(Track(
+                kind=TrackKind.original,
+                storage_key=f"jobs/{job_id}/original.mp3",
+                duration_seconds=job.duration_seconds,
+            ))
+            _publish_stems(job, storage, {
+                TrackKind.drums: sep.drums_path,
+                TrackKind.vocals: sep.vocals_path,
+                TrackKind.no_drums_no_vocals: sep.backing_path,
+            })
+            (pub_dir / "no_drums.mp3").unlink(missing_ok=True)   # drop legacy stem
+            _set(session, job, status=JobStatus.done, progress=100, error=None)
+            metadata.write_meta(job)   # preserves markers/deleted
+            log.info("Reprocessed %s: %s", job_id, job.title)
+    except subprocess.CalledProcessError as exc:
+        _fail(session, job_id, (exc.stderr or str(exc)).strip()[-500:])
+    except Exception as exc:  # noqa: BLE001
+        log.exception("Reprocess %s failed", job_id)
+        _fail(session, job_id, str(exc))
+    finally:
+        session.close()
