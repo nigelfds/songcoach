@@ -376,6 +376,9 @@ a { color: inherit; }
 }
 .strip[data-audible="true"]::before { opacity: 1; }
 .strip[data-audible="true"] { background: color-mix(in srgb, var(--chan) 7%, transparent); }
+/* Keep the vocals/backing rows on the light panel — their controls still carry the channel tint. */
+.strip[data-kind="vocals"][data-audible="true"],
+.strip[data-kind="no_drums_no_vocals"][data-audible="true"] { background: transparent; }
 /* dim the waveform of any strip that isn't producing sound right now */
 .wave { transition: opacity .2s; }
 .strip:not([data-audible="true"]) .wave { opacity: .38; }
