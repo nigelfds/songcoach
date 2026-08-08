@@ -14,8 +14,9 @@
 
   --amber:     #e8760a;   /* signal / primary — deepened for light */
   --amber-hot: #ff9e40;   /* gradient top / LED glow */
-  --teal:      #0e9e90;   /* no-drums channel */
+  --teal:      #0e9e90;   /* no-drums / backing channel */
   --violet:    #6d45e6;   /* original channel */
+  --pink:      #d6336c;   /* vocals channel */
   --green:     #1f9e4b;   /* transport / go */
   --red:       #dc3a3a;
 
@@ -412,9 +413,11 @@ a { color: inherit; }
 .wave__loading { height: 72px; display: grid; place-items: center; color: var(--ink-faint); font-family: var(--font-mono); font-size: .75rem; letter-spacing: .2em; }
 
 /* channel colors */
-.strip[data-kind="original"] { --chan: var(--violet); }
-.strip[data-kind="drums"]    { --chan: var(--amber); }
-.strip[data-kind="no_drums"] { --chan: var(--teal); }
+.strip[data-kind="original"]           { --chan: var(--violet); }
+.strip[data-kind="drums"]              { --chan: var(--amber); }
+.strip[data-kind="vocals"]             { --chan: var(--pink); }
+.strip[data-kind="no_drums_no_vocals"] { --chan: var(--teal); }
+.strip[data-kind="no_drums"]           { --chan: var(--teal); }
 
 /* ---- header controls (readout / loop / speed) ---- */
 .readout { font-family: var(--font-mono); font-size: .82rem; color: var(--ink-dim); white-space: nowrap; }
