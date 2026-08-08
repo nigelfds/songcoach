@@ -47,6 +47,7 @@ def test_reprocess_409_not_done(client, storage_dir):
 def test_reprocess_409_missing_original(client, storage_dir):
     s = SessionLocal(); s.add(Job(id="c", title="T", status=JobStatus.done)); s.commit(); s.close()
     assert client.post("/api/jobs/c/reprocess").status_code == 409     # no original.mp3
+    assert client.enqueue_calls == []
 
 
 def test_reprocess_409_recording(client, storage_dir, monkeypatch):
@@ -54,3 +55,4 @@ def test_reprocess_409_recording(client, storage_dir, monkeypatch):
     monkeypatch.setattr(recording, "is_recording", lambda: True)
     jid = _done_with_original("d")
     assert client.post(f"/api/jobs/{jid}/reprocess").status_code == 409
+    assert client.enqueue_calls == []

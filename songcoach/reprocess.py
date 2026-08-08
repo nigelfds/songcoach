@@ -38,12 +38,17 @@ def run(force: bool = False) -> tuple[int, int, int]:
 
     done = failed = 0
     for jid in candidates:
+        reprocess_job(jid)   # catches its own errors and marks the job failed
+        session = SessionLocal()
         try:
-            reprocess_job(jid)
-            done += 1
-        except Exception:  # noqa: BLE001
-            failed += 1
-            log.exception("Reprocess failed for %s", jid)
+            job = session.get(Job, jid)
+            if job is not None and job.status == JobStatus.done:
+                done += 1
+            else:
+                failed += 1
+                log.warning("Reprocess did not complete for %s", jid)
+        finally:
+            session.close()
     log.info("Done — %d reprocessed, %d skipped, %d failed", done, skipped, failed)
     return done, skipped, failed
 

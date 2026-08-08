@@ -35,3 +35,18 @@ def test_cli_force_reprocesses_all_done(storage_dir, db, monkeypatch):
     monkeypatch.setattr(cli, "reprocess_job", lambda jid: done_ids.append(jid))
     done, skipped, failed = cli.run(force=True)
     assert set(done_ids) == {"old1", "new1"} and (done, skipped, failed) == (2, 0, 0)
+
+
+def test_cli_counts_a_failed_reprocess(storage_dir, db, monkeypatch):
+    monkeypatch.setattr(cli, "rebuild", lambda **k: 0)
+    _add("bad1", has_vocals=False)
+    def _fail_it(jid):
+        s = SessionLocal()
+        try:
+            s.get(Job, jid).status = JobStatus.failed
+            s.commit()
+        finally:
+            s.close()
+    monkeypatch.setattr(cli, "reprocess_job", _fail_it)
+    done, skipped, failed = cli.run(force=False)
+    assert (done, skipped, failed) == (0, 0, 1)

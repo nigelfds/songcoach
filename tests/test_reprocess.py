@@ -79,3 +79,13 @@ def test_enqueue_reprocess_dispatches_to_reprocess_job(monkeypatch):
     stem_queue.enqueue_reprocess("z1")
     stem_queue._queue.join()
     assert calls == [("z1", "reprocess")]
+
+
+def test_run_job_dispatches_by_task(monkeypatch):
+    from songcoach.pipeline import process
+    calls = []
+    monkeypatch.setattr(process, "process_capture", lambda jid: calls.append(("process", jid)))
+    monkeypatch.setattr(process, "reprocess_job", lambda jid: calls.append(("reprocess", jid)))
+    stem_queue._run_job("a", "process")
+    stem_queue._run_job("b", "reprocess")
+    assert calls == [("process", "a"), ("reprocess", "b")]
